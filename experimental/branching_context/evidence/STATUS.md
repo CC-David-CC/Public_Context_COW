@@ -662,3 +662,7 @@ Expanded the registered case to synchronize collection, fork, rewind and real is
 ### U01 checkpoint compatibility prework (2026-10-12)
 
 Strict manifest validation now rejects undeclared fields, unknown schema versions, Boolean versions/sizes, mismatched contracts/profiles/positions and invalid payload identities before native deserialization. Executed assertion red then unchanged green on llm-49; isolated Boolean-version mutant caught. G0 51/51 and reference mutants 4/4 pass. G5-003 is written but unexecuted: reject incompatible saved state, explicitly evict derived checkpoints, cold replay and verify canonical IDs/controller bytes/revision plus fresh logits and work counters. No numerical conversion or gate PASS claimed. Evidence: `checkpoint-upgrade-prework.json`.
+
+### U02 rollback and receipts prework (2026-10-12)
+
+Executed four red assertion failures for numeric/Boolean schema acceptance; strict reference marker, branch, order and legacy migration version checks now pass unchanged tests. Actual child processes exited 73 before/after branch rename; retry produces one receipt/revision, payload mismatch and stale revision reject, canonical snapshot bytes unchanged. Five collection regressions, G0 51/51 and reference mutations 4/4 pass. Registered G5-010/G5-012 written but unexecuted. Actual two-release executable rollback remains outstanding; format simulation is not that measurement. Evidence: `rollback-receipts-prework.json`.

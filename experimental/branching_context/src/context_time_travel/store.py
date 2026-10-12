@@ -207,6 +207,8 @@ class Store:
                 self._publish_format(self.references.name)
             else:
                 marker = self._read_reference_json(self.refs_path)
+                if type(marker.get('schema')) is not int:
+                    raise IntegrityError('Invalid reference schema version')
                 if marker.get('schema') == 1:
                     self._migrate_references(marker)
                 else:
@@ -481,7 +483,7 @@ class Store:
 
     def _set_reference_directory(self, marker: dict) -> None:
         directory = marker.get('directory')
-        if set(marker) != {'schema', 'directory'} or marker['schema'] != 2 or not isinstance(directory, str):
+        if set(marker) != {'schema', 'directory'} or type(marker['schema']) is not int or marker['schema'] != 2 or not isinstance(directory, str):
             raise IntegrityError('Invalid reference directory schema')
         if directory != 'references' and not re.fullmatch(r'references-[0-9a-f]{64}', directory):
             raise IntegrityError('Invalid reference directory name')
@@ -500,7 +502,7 @@ class Store:
         # failed transaction may leave a gap; it never creates an audit event
         # or changes a branch. The global file lock serializes reservations.
         value = self._read_reference_json(self.order_path)
-        if set(value) != {'schema', 'next'} or value['schema'] != 1 or type(value['next']) is not int or not 0 <= value['next'] < 2**64 - 1:
+        if set(value) != {'schema', 'next'} or type(value['schema']) is not int or value['schema'] != 1 or type(value['next']) is not int or not 0 <= value['next'] < 2**64 - 1:
             raise IntegrityError('Invalid or exhausted reference order counter')
         self._write_order(value['next'] + 1)
         return value['next']
@@ -510,7 +512,7 @@ class Store:
         if not path.exists():
             raise NotFound(f'Unknown branch: {name}')
         value = self._read_reference_json(path)
-        if set(value) != {'schema', 'name', 'head', 'receipts', 'events', 'orders'} or value['schema'] != 1 or value['name'] != name:
+        if set(value) != {'schema', 'name', 'head', 'receipts', 'events', 'orders'} or type(value['schema']) is not int or value['schema'] != 1 or value['name'] != name:
             raise IntegrityError('Invalid branch record')
         head = value['head']
         if not isinstance(head, dict) or set(head) != {'revision', 'tip', 'root'} or type(head['revision']) is not int or head['revision'] < 0:
@@ -548,7 +550,7 @@ class Store:
         return result
 
     def _migrate_references(self, old: dict) -> None:
-        if set(old) != {'schema', 'branches', 'receipts', 'events'} or not isinstance(old['branches'], dict) or not isinstance(old['receipts'], dict) or not isinstance(old['events'], list):
+        if set(old) != {'schema', 'branches', 'receipts', 'events'} or type(old['schema']) is not int or old['schema'] != 1 or not isinstance(old['branches'], dict) or not isinstance(old['receipts'], dict) or not isinstance(old['events'], list):
             raise IntegrityError('Invalid legacy reference index')
         # Snapshot objects keep their exact bytes/IDs. Only the reference index
         # changes layout. Until the final marker rename, the old index is the

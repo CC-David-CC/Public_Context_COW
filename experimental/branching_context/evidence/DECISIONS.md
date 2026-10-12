@@ -491,3 +491,7 @@ Evaluation retention was measured at the actual public evaluate read-lease bound
 ### Checkpoint upgrade boundary (2026-10-12)
 
 Kept incompatible checkpoint loads as explicit errors. Tightened versioned manifest parsing rather than inferring compatibility from tensor shapes or silently importing unknown fields. Existing explicit numerical eviction is the cold-replay route under the same model contract; canonical history and references are untouched. No format converter or automatic semantic migration is claimed. CPU checks pass; native replay qualification remains pending.
+
+### Rollback schema refusal (2026-10-12)
+
+JSON schema versions must be integers, not values that merely compare equal in Python. In particular a Boolean legacy version must not trigger reference migration. Reject before changing reference records. Process-kill receipt recovery is measured separately from power-loss durability and from a future two-release executable rollback test.
