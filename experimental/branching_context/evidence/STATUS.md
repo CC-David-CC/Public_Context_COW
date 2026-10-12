@@ -618,3 +618,7 @@ Executed the missing-real-demonstration red assertion on llm-49. Added run_real 
 ## 2026-10-12 evaluator host prerequisite and E04 regressions
 
 E04 addition preserves the standalone toy demo; executed toy command passed, G0 51/51 and mutants 4/4 on llm-49. Real E04 green remains unexecuted. On llm-60 the unchanged E02 isolation test FAILED (one failure, zero skips): expected PASS but sandbox returned ERROR. Kernel audit confirms AppArmor unprivileged_userns denies bwrap setpcap/net_admin; network namespace creation fails. Evaluator-dependent G4 is BLOCKED on llm-60 under current host policy. llm-49 has executed working isolation; prioritize llm-60 for inference and run evaluator-dependent acceptance on llm-49 after its own baseline qualification. No security policy was changed. Evidence: `llm60-evaluator-prerequisite.json`.
+
+## 2026-10-12 N03 finalization validation
+
+Added a finalizer to the existing profile builder that preserves the pinned build identity while attaching calibration evidence. Executed red then unchanged green for rejection of a saved incomplete real run and the same incomplete rows falsely labeled FROZEN. No profile output is permitted on either failure. Full path verifies model/build/admission fingerprints, all 27 raw frontier files and exact token inputs, direct counters, 18 recomputed errors and the predeclared tolerance rule. Completed-run path remains unexecuted until calibration finishes. G0 51/51 and mutants 4/4 passed. Evidence: `calibration-finalization-check.json`.

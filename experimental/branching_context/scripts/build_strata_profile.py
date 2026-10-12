@@ -1,8 +1,10 @@
 """Pin measured Strata files/settings; incomplete calibration never gets tolerances."""
 import argparse
+import array
 import hashlib
 import importlib.util
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -15,6 +17,85 @@ def digest(value):
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def finalize_existing_profile(profile_path, calibration_path, output):
+    """Attach complete measured calibration without reattributing a pinned build."""
+    from context_time_travel.strata_backend import _validate_execution, _validate_model
+    profile = json.loads(Path(profile_path).read_text())
+    baseline = json.loads(Path(calibration_path).read_text())
+    def require(condition, message):
+        if not condition:
+            raise ValueError(message)
+    lengths = [1,31,127,255,256,257,511,1024,4096]
+    require(baseline.get('status') == 'FROZEN', 'Calibration is not complete')
+    require(baseline.get('calibration_lengths') == lengths and baseline.get('repetitions') == 3,
+            'Calibration matrix differs from the predeclared matrix')
+    rows = baseline.get('commands', [])
+    require(len(rows) == 27 and {(r['length'],r['repeat']) for r in rows} ==
+            {(n,r) for n in lengths for r in range(3)}, 'Incomplete calibration forwards')
+    _validate_execution(profile)
+    _validate_model(profile)
+    admission_path = Path(baseline['resource_admission'])
+    require(sha(admission_path) == baseline['resource_admission_sha256'], 'Admission receipt changed')
+    admission = json.loads(admission_path.read_text())
+    settings = execution_settings(admission)
+    command = profile['execution']['oracle_command']
+    require(command == baseline['command'] == admission['oracle_command'], 'Oracle command mismatch')
+    require(profile['execution']['sut_command'] == admission['sut_command'], 'Branch command mismatch')
+    require(sha(command[0]) == baseline['oracle_sha256'] == admission['oracle_binary_sha256'],
+            'Oracle binary mismatch')
+    require(sha(admission['sut_command'][0]) == admission['sut_binary_sha256'], 'Branch binary mismatch')
+    require(baseline['hardware'] == profile['hardware'], 'Hardware mismatch')
+    for key in ('operator','environment','capacity'):
+        require(baseline[key] == profile['execution'][key], key+' mismatch')
+    require(baseline['kv_format'] == settings['kv_format'] == profile['execution']['kv_dtype'], 'KV mismatch')
+    require(baseline['expert_cache_slots'] == settings['expert_cache_slots'], 'Expert cache mismatch')
+    require(set(baseline['model_files']) == set(profile['model_files']), 'Model file set mismatch')
+    for name,item in baseline['model_files'].items():
+        for key in ('bytes','sha256','mtime_ns','ctime_ns'):
+            require(item[key] == profile['model_files'][name][key], 'Model receipt mismatch: '+name)
+    observed = {}
+    for row in rows:
+        n, repeat = row['length'], row['repeat']
+        require(row['exit_code'] == 0, 'Failed forward')
+        token_path = Path(row['stdout']).with_suffix('.tokens')
+        require(row['command'] == command+['--tokens-file',str(token_path)], 'Forward command mismatch')
+        ids = [100+i*17 % 137 for i in range(n)]
+        require(token_path.read_text() == ','.join(map(str,ids)), 'Token fixture mismatch')
+        counters = json.loads(Path(row['stdout']).read_text())
+        require(counters == row['native_counters'], 'Saved counters differ')
+        require(counters['forward_tokens'] == counters['consumed'] == n and counters['position_max'] == n-1,
+                'Prefix computation mismatch')
+        raw = Path(row['stdout']).with_suffix('.f32').read_bytes()
+        require(len(raw) == row['bytes'] == counters['logits_bytes'] == 248320*4, 'Frontier size mismatch')
+        require(hashlib.sha256(raw).hexdigest() == row['logits_sha256'], 'Frontier hash mismatch')
+        values = array.array('f',raw)
+        if sys.byteorder != 'little':
+            values.byteswap()
+        require(all(map(math.isfinite,values)), 'Nonfinite frontier')
+        observed[n,repeat] = values
+    measured = {(n,r): max(abs(x-y) for x,y in zip(observed[n,0],observed[n,r]))
+                for n in lengths for r in (1,2)}
+    comparisons = baseline['comparisons']
+    require(len(comparisons) == 18 and {(c['length'],c['repeat']) for c in comparisons} == set(measured),
+            'Incomplete repeat comparisons')
+    for comparison in comparisons:
+        n,r = comparison['length'],comparison['repeat']
+        require(comparison['exact_token_ids'] == [100+i*17 % 137 for i in range(n)], 'Comparison fixture mismatch')
+        require(comparison['max_absolute_error'] == measured[n,r], 'Recorded error differs from raw logits')
+    worst = max(measured.values())
+    require(baseline['baseline_max_absolute_error'] == worst and baseline['atol'] == 2*worst
+            and baseline['rtol'] == 0, 'Tolerance is not the frozen baseline-derived rule')
+    profile.update(model_files=baseline['model_files'],calibration_path=str(Path(calibration_path).resolve()),
+        calibration_sha256=sha(calibration_path),calibration_status='FROZEN',
+        admission_path=str(admission_path),admission_sha256=sha(admission_path),
+        atol=baseline['atol'],rtol=0,baseline_max_absolute_error=worst,
+        tolerance_rule=baseline['tolerance_rule'],numerical_gate_qualified=False)
+    with Path(output).open('x') as stream:
+        json.dump(profile,stream,indent=2)
+        stream.write('\n')
+    return profile
 
 
 def main():
