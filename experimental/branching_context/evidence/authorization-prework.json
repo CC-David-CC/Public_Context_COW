@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "ticket": "P01",
+  "status": "RED_EXECUTED_IMPLEMENTATION_PENDING",
+  "red": {
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests/implementation",
+      "-p",
+      "test_p01.py",
+      "-v"
+    ],
+    "exit_code": 1,
+    "test_sha256": "220b1d86b34bb385ac765675b148044d34993c8e333de8abf509b98ab4705e18",
+    "store_sha256": "929e7cff7d6ac90722dd6a73c43af1c87a82f11b48ad06c1ced703a4d1d191df"
+  },
+  "raw_sha256": {
+    "red.json": "2ff656a734ee838dc64ac506ad7aff6c87c3fb8e1ffc324f114ebf35cd71d1cf",
+    "red.stderr": "15883c4c61aeee956071f40e3410be14eb8b85b05e0a45a82934a54603e405c7",
+    "red.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "limitations": [
+    "No authorization implementation or real-backend G5 test yet.",
+    "Existing Store is a trusted local owner API; root grants and principal-bound access remain missing."
+  ]
+}
