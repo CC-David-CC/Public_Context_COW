@@ -23,6 +23,9 @@
 #include "strata/core/remote_expert_opt.hpp"
 #include "strata/core/expert_cache.hpp"
 #include "strata/core/conversation_snapshot.hpp"
+#ifdef STRATA_STEP_DRIVER
+#include "strata/core/step_dump.hpp"
+#endif
 #ifdef STRATA_BRANCH_DRIVER
 #include "strata/core/branch_driver.hpp"
 #endif
@@ -2897,8 +2900,8 @@ int main(int argc, char** argv) {
 #ifdef STRATA_STEP_DRIVER
     // Diagnostic executable only: ordinary initialization, forced T=1 history.
     constexpr bool ordinary_step_control = true;
-    if (!native_pack || o.serve || o.prefill_chunk != 0 || !o.mtp.empty()) {
-        std::fprintf(stderr, "strata step: requires native pack, --prefill 0, no serve or MTP\n");
+    if (!native_pack || o.serve || o.prefill_chunk < 0 || !o.mtp.empty()) {
+        std::fprintf(stderr, "strata step: requires native pack, nonnegative prefill, no serve or MTP\n");
         return 2;
     }
 #else
@@ -12869,13 +12872,19 @@ int main(int argc, char** argv) {
         // Use this ordinary path's initialized verifier and expert dispatcher.
         // No branch/fresh driver, retained checkpoint or sampled continuation.
         const char* step_output = std::getenv("STRATA_DUMP_FIRST_LOGITS");
-        if (spec_pos != 0 || o.tokens.empty() || step_output == nullptr) {
-            std::fprintf(stderr, "strata step: requires empty initial state, full tokens and logits output\n");
+        if (spec_pos < 0 || spec_pos >= (int64_t) o.tokens.size() || step_output == nullptr) {
+            std::fprintf(stderr, "strata step: requires complete prompt frontier and logits output\n");
             return 2;
         }
         ver.set_head_sampling(false);
-        int64_t consumed = 0;
-        for (int64_t token : o.tokens) {
+        const char* state_output = std::getenv("STRATA_STEP_STATE");
+        if (state_output && spec_pos > 1) return 2; // this diagnostic observes exactly one consumed token
+        if (state_output && spec_pos == 1 && !strata::core::dump_first_consumed_state(state_output, ss, g, err)) {
+            std::fprintf(stderr, "%s\n", err.c_str()); return 1;
+        }
+        int64_t consumed = spec_pos;
+        for (size_t step = (size_t) spec_pos; step < o.tokens.size(); ++step) {
+            const int64_t token = o.tokens[step];
             if (token < 0 || token >= ver.vocab()) return 2;
             const int32_t input = (int32_t) token;
             int32_t unused = 0;
@@ -12886,8 +12895,11 @@ int main(int argc, char** argv) {
                 return 1;
             }
             ++consumed;
+            if (state_output && consumed == 1 && !strata::core::dump_first_consumed_state(state_output, ss, g, err)) {
+                std::fprintf(stderr, "%s\n", err.c_str()); return 1;
+            }
         }
-        if (ver.completed_forward_tokens != (uint64_t) consumed) return 1;
+        if (ver.completed_forward_tokens != (uint64_t) (consumed - spec_pos)) return 1;
         std::vector<float> step_logits((size_t) ver.vocab());
         if (!ver.copy_logits(0, step_logits.data())) return 1;
         for (float value : step_logits) if (!std::isfinite(value)) return 1;

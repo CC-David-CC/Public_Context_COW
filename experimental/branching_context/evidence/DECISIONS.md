@@ -395,3 +395,19 @@
   multi-token driver initialization issue from the observed prefill-path error.
 - Verify default isolation by rebuilding ordinary strata and hashing both
   binaries: they are byte-identical, stronger than a source-only assertion.
+
+## 2026-10-12: compare populated state without defining another snapshot API
+
+- Keep the dump diagnostic-only with no restore operation. Read actual session
+  buffers and translate the first logical KV page through its page table;
+  capture only the first populated cell per head, not spare allocation bytes.
+- Split GDN recurrence and convolution using the inspected native geometry.
+  Capture PLE and live indexer components separately. Reject unsupported layouts
+  instead of pretending this bounded diagnostic supports every checkpoint.
+- Establish readback noninterference by comparing final full-logit hashes against
+  both previous uninstrumented runs. All bytes match. The diagnostic exposes
+  divergence; its passing test does not assert numerical equivalence.
+- Source inspection shows different projection arithmetic before the first GDN
+  convolution: prefill native_proj consumes FP16 activations; the verifier uses
+  its native quantized projection path. This is a localization hypothesis,
+  not yet an isolated causal measurement or justification to loosen tolerances.

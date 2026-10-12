@@ -503,3 +503,27 @@ The missing ordinary token-only comparison primitive now exists. N02's prefill
 mismatch remains unresolved; direct state-buffer comparison after the first
 token is still missing. No batched-equivalence, memory-benefit or G1-G5 PASS
 claim follows. HIP/SYCL were not built; the new target is CUDA-only.
+
+## First consumed state compared, 2026-10-12
+
+N02-STATE added read-only instrumentation to the separate CUDA diagnostic,
+with a missing-dump assertion red followed by the unchanged passing test.
+After consuming token 100, each path exported 169 components totaling
+118081584 bytes: recurrence, convolution, PLE, indexer state and only populated
+resident FP16 KV rows. 157 components differ. All 12 indexer block cursors
+match; both PLE token windows are [-1,100]. These observations do not establish
+that every positional/mask invariant is correct.
+
+The earliest observed divergence is already in GDN ordinal 0: recurrence max
+absolute difference 0.0029393713921308517, convolution 0.028350234031677246.
+QSA ordinal 0 K-head-0 differs by 0.005859375; PLE history by
+0.04052877426147461. The largest component difference is GDN 35 convolution,
+0.5618761777877808. These are state-value differences, not logit tolerances.
+
+Both instrumented final logit files match their prior uninstrumented files
+byte-for-byte. The ordinary executable remains byte-identical after rebuilding.
+G0 passed 51/51; four mutants were detected. The diagnostic test took 13.07
+seconds. No acceptance gate, memory-efficiency or prefill-equivalence PASS is
+claimed. The dump is deliberately limited to a one-token boundary and resident
+FP16 KV; other layouts are rejected. The first responsible arithmetic operation
+still needs isolation. See [state-comparison-validation.json](state-comparison-validation.json).
