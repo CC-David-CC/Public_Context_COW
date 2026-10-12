@@ -256,6 +256,12 @@ class BranchingModel:
     @contextmanager
     def materialize(self, snapshot):
         self.store.authorize(snapshot, 'materialize')
+        with self.store.read_lease(snapshot):
+            with self._materialize(snapshot) as state:
+                yield state
+
+    @contextmanager
+    def _materialize(self, snapshot):
         record = self.store.get_snapshot(snapshot)
         if record['model_contract_id'] != self.profile['model_contract_id']:
             raise IntegrityError('Snapshot model contract mismatch')

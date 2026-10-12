@@ -475,3 +475,7 @@ The trusted local owner authenticates a principal and binds a restricted Store/m
 ## 2026-10-12 at-rest policy
 
 Use explicit POSIX 0700 directories and 0600 publication/staging files, independent of caller umask. Reject symlink directories and directories owned by another OS principal. Store policy states owner-only plaintext; no encrypted-storage claim or unverified key handling. Existing legacy payloads are protected by owner-only root traversal; their modes are not silently recursively rewritten. Registered sensitive-storage acceptance must exercise actual native checkpoint files under a separate OS principal.
+
+## 2026-10-12 retention lease lifetime
+
+Use shared OS locks on snapshot-named lease files. The kernel releases an active lease on process death; stale lock files alone do not pin history. Register leases under the reference transaction lock so a future collector can synchronize discovery with entry. Named historical pins and evaluation roots are separate retention metadata over the canonical snapshots. This does not yet authorize or implement physical history deletion.

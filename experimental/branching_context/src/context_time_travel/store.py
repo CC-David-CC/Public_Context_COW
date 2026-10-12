@@ -274,6 +274,77 @@ class Store:
             for key, value in values.items():
                 self._work[key] += value
 
+    def retain(self, name: str, snapshot: str) -> None:
+        """Name an explicit historical pin without copying history."""
+        if self._principal is not None:
+            raise PermissionError('Retention administration requires the local owner')
+        _name(name)
+        with self._locked():
+            self.get_snapshot(snapshot)
+            directory=self.root/'retained'
+            _private_directory(directory)
+            stage=_stage(directory,_json_bytes({'snapshot':snapshot}))
+            try:
+                os.replace(stage,directory/(name+'.json'))
+                _sync_dir(directory)
+                _sync_dir(self.root)
+            finally:
+                stage.unlink(missing_ok=True)
+
+    def release_retained(self, name: str) -> None:
+        if self._principal is not None:
+            raise PermissionError('Retention administration requires the local owner')
+        with self._locked():
+            path=self.root/'retained'/(_name(name)+'.json')
+            path.unlink()
+            _sync_dir(path.parent)
+
+    @contextmanager
+    def read_lease(self, snapshot: str):
+        """An OS lock pins an active reader; process death releases it."""
+        self.authorize(snapshot,'read')
+        stream=None
+        try:
+            with self._locked():
+                self.get_snapshot(snapshot)
+                directory=self.root/'read-leases'
+                _private_directory(directory)
+                descriptor=os.open(directory/(_id(snapshot)+'.lock'),os.O_CREAT|os.O_RDWR,0o600)
+                stream=os.fdopen(descriptor,'r+b')
+                fcntl.flock(stream.fileno(),fcntl.LOCK_SH)
+            yield snapshot
+        finally:
+            if stream is not None:
+                stream.close()
+
+    def _retained_snapshots_locked(self):
+        refs=self._read_refs()
+        seeds={s for h in refs['branches'].values() for s in (h['root'],h['tip'])}
+        for path in (self.root/'retained').glob('*.json'):
+            seeds.add(_id(_decode(path.read_bytes())['snapshot']))
+        for path in (self.root/'evaluations').glob('*.json'):
+            record=self.get_evaluation(path.stem)
+            seeds.update((record['snapshot_id'],record['task_root']))
+        for path in (self.root/'read-leases').glob('*.lock'):
+            with path.open('r+b') as stream:
+                try:
+                    fcntl.flock(stream.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+                except BlockingIOError:
+                    seeds.add(_id(path.stem))
+        retained=set()
+        for seed in seeds:
+            cursor=seed
+            while cursor is not None and cursor not in retained:
+                retained.add(cursor)
+                cursor=self.get_snapshot(cursor)['parent']
+        return retained
+
+    def retained_snapshots(self):
+        if self._principal is not None:
+            raise PermissionError('Global retention inspection requires the local owner')
+        with self._locked():
+            return self._retained_snapshots_locked()
+
     def work_counters(self) -> dict[str, int]:
         """Completed application-byte I/O and actual traversals, not disk traffic.
 

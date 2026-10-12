@@ -638,3 +638,7 @@ Unchanged P01 CPU red now passes: same underlying immutable store, durable root 
 ## 2026-10-12 P02 sensitive storage permissions
 
 Executed red with umask 0: newly created store directory was 0777 rather than required 0700. Unchanged test now passes with private directories and 0600 files, including grants, evaluations, references and interrupted staging. Real reads as nobody (uid 65534) fail with PermissionError for history/evaluation/staged bytes. P01 regression also passes; G0 51/51; mutants 4/4. Native checkpoint directories now use the same private directory helper. Registered G5-007 written but unexecuted. Declared policy is owner-only plaintext, explicitly not encryption. Evidence: `sensitive-storage-prework.json`.
+
+## 2026-10-12 P03 retention and read leases
+
+Added named historical pins, branch/evaluation reachability and POSIX flock-backed active read leases. Materialization and evaluation hold a lease. A real spawned child proved active pin visibility and automatic release on termination. Initial test cleanup hung in multiprocessing.Event.set after killing the waiter; preserved interrupted traceback, removed that cleanup operation without changing assertions, and reran corrected test red against 214cc3e8 then green. Three P01-P03 tests, two evaluator regressions, G0 51/51 and mutants 4/4 passed. No history deletion/GC yet; GPU lease integration unexecuted. Evidence: `retention-leases-prework.json`.
