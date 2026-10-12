@@ -226,3 +226,28 @@
 - Rebuild actual CUDA binaries before attributing host-sharing behavior to model
   inference. The old pinned binaries establish controller-boundary results only.
   Complete C01's native cache integration before advancing dependent slot work.
+
+## 2026-10-12: capture admission and exact native lookup
+
+- A read-only callback on a mutable buffer must receive const bytes without
+  detaching its payload. Mutable callbacks still take the COW path. New actual
+  native tests first failed and then passed; original R01/R02/R03 probes pass.
+- Preserve the existing standalone capacity-admission contract. It charges
+  independent K/V buffers conservatively; the cache's shared allocation walk
+  and direct storage metrics count actual payload allocations once. Do not
+  present the conservative admission charge as measured physical memory.
+- Admission includes detached payloads and changed view directories on a
+  published rewrite, including same-size and shrinking captures. Three native
+  admission/read/accounting cases passed; G0 51 and four mutants passed.
+- Keep the unchanged native snapshot test failure. Its unconditional retained
+  pointer assertion conflicts with a rewritten shared prefix. No production
+  switch, ancestor mutation or test edit was introduced to produce a green run.
+- The rebuilt pinned CUDA binaries passed 17 exact fresh-process comparisons,
+  including G3-004, but this is bounded evidence with an unqualified profile.
+  Normal conversation-cache and batch-slot integration remains outstanding.
+- Add exact live-history cache lookup rather than changing request-prefill
+  matching, which intentionally excludes the final prompt token. Check all
+  tokens, image keys and steering state. This is a derived cache primitive;
+  canonical snapshots and controllers remain in the existing immutable store.
+  The primitive's one native CPU case passed after a recorded fixture-setting
+  correction and a fresh red/green cycle. It is not an inference integration.

@@ -1140,12 +1140,275 @@
       "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
     },
     {
+      "id": "R03-ADMISSION",
+      "title": "Repair COW admission and const-read behavior",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "R03"
+      ],
+      "files": [
+        "include/strata/core/conversation_buffer.hpp",
+        "include/strata/core/conversation_cache.hpp",
+        "experimental/branching_context/tests/implementation/test_r03_admission.py"
+      ],
+      "invariant": "Conservative standalone capture charges retain the original estimator contract; actual cache payload accounting deduplicates allocation identities. Const reads do not copy or move immutable bytes. Capture admission includes COW payloads and directory replacement.",
+      "registered_cases": [],
+      "registered_assertions": [
+        {
+          "id": "G1-004",
+          "gate": "G1",
+          "test": "test_g1_004_every_accepted_boundary",
+          "assertion": "After each accepted generated/forced token, consumed length, positions and next logits align."
+        },
+        {
+          "id": "G1-014",
+          "gate": "G1",
+          "test": "test_g1_014_pending_sampled_token",
+          "assertion": "Saving immediately after sample cannot produce sampled-but-unconsumed cache frontier."
+        },
+        {
+          "id": "G1-015",
+          "gate": "G1",
+          "test": "test_g1_015_mid_generation_rng_replay",
+          "assertion": "Seven accepted tokens, save, twenty more, restore, repeat: tokens and draws agree."
+        },
+        {
+          "id": "G1-016",
+          "gate": "G1",
+          "test": "test_g1_016_sampler_multiple_draws",
+          "assertion": "Controller stores actual RNG draw cursor if sampler uses variable draws per token."
+        },
+        {
+          "id": "G1-017",
+          "gate": "G1",
+          "test": "test_g1_017_grammar_mid_production",
+          "assertion": "Mid-grammar restoration preserves legal-token state and never bypasses grammar."
+        },
+        {
+          "id": "G1-018",
+          "gate": "G1",
+          "test": "test_g1_018_stop_progress_and_eos",
+          "assertion": "Stop matcher and EOS status survive restore; stopped scope remains stopped."
+        },
+        {
+          "id": "G1-027",
+          "gate": "G1",
+          "test": "test_g1_027_stream_publication_boundary",
+          "assertion": "A resumable streamed token has a durable, fully consumed matching snapshot."
+        }
+      ],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r03_admission.py"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_published_rewrite_fits_admission",
+            "test_readonly_visit_keeps_published_payload",
+            "test_standalone_admission_and_cache_unique_storage"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r03_admission.py"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "prior-host",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r0[123].py"
+          },
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Run the newly added idle-controller regression against the preserved Luna source; do not change any existing assertion.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
+      "id": "C01-EXACT",
+      "title": "Exact native lookup at consumed frontier",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "C01",
+        "R03-ADMISSION"
+      ],
+      "files": [
+        "include/strata/core/conversation_cache.hpp",
+        "experimental/branching_context/tests/implementation/test_c01_exact.py"
+      ],
+      "invariant": "Exact native cache lookup checks the full consumed history, all image identity and steering semantics. Read-only lookup does not copy payloads. Legacy request prefill matching stays unchanged. This primitive alone does not complete native inference integration.",
+      "registered_cases": [],
+      "registered_assertions": [
+        {
+          "id": "G1-004",
+          "gate": "G1",
+          "test": "test_g1_004_every_accepted_boundary",
+          "assertion": "After each accepted generated/forced token, consumed length, positions and next logits align."
+        },
+        {
+          "id": "G1-014",
+          "gate": "G1",
+          "test": "test_g1_014_pending_sampled_token",
+          "assertion": "Saving immediately after sample cannot produce sampled-but-unconsumed cache frontier."
+        },
+        {
+          "id": "G1-015",
+          "gate": "G1",
+          "test": "test_g1_015_mid_generation_rng_replay",
+          "assertion": "Seven accepted tokens, save, twenty more, restore, repeat: tokens and draws agree."
+        },
+        {
+          "id": "G1-016",
+          "gate": "G1",
+          "test": "test_g1_016_sampler_multiple_draws",
+          "assertion": "Controller stores actual RNG draw cursor if sampler uses variable draws per token."
+        },
+        {
+          "id": "G1-017",
+          "gate": "G1",
+          "test": "test_g1_017_grammar_mid_production",
+          "assertion": "Mid-grammar restoration preserves legal-token state and never bypasses grammar."
+        },
+        {
+          "id": "G1-018",
+          "gate": "G1",
+          "test": "test_g1_018_stop_progress_and_eos",
+          "assertion": "Stop matcher and EOS status survive restore; stopped scope remains stopped."
+        },
+        {
+          "id": "G1-027",
+          "gate": "G1",
+          "test": "test_g1_027_stream_publication_boundary",
+          "assertion": "A resumable streamed token has a durable, fully consumed matching snapshot."
+        }
+      ],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_exact.py"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_consumed_frontier_exact_cache_identity"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_exact.py"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "prior-host",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r0[123].py"
+          },
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Run the newly added idle-controller regression against the preserved Luna source; do not change any existing assertion.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "S01",
       "title": "Bind branch snapshots to batch-slot leases",
       "kind": "implementation",
       "enabled": true,
       "depends_on": [
-        "R03"
+        "R03",
+        "R03-ADMISSION"
       ],
       "files": [
         "src/program/generate.cpp",

@@ -191,6 +191,56 @@ All earlier failures remain in the ledger and raw evidence.
 C01's focused checkpoint-identity check does not establish normal native cache
 integration. The next work is a new CUDA engine build and completion of that
 integration before relying on S01's prerequisites. CUDA configuration succeeded
-with the changed source; compilation and native checks are not yet reported.
+with the changed source. Compilation of 15 targets succeeded in 127.188 seconds.
+Nine native executables then passed, but the unchanged conversation snapshot
+test failed its incremental allocation-admission assertion. A new test reproduced
+under-admission for published shrink/same-size/growth rewrites; including detach
+payloads and view-directory allocations made that focused test pass. The rebuilt
+snapshot test now reaches a retained-pointer stability failure. The unchanged
+validation and transfer tests also fail their exact estimate-versus-image-bytes
+assertion. These integration failures remain unresolved; native validation is
+FAIL, not PASS. Tests and their assertions remain unchanged. The first build's
+commands, source/binary hashes and logs are in the execution directory's
+`native-validation-primary/progress.json`; the admission red log is retained
+under `evidence/runs/luna/remote/PRIMARY-20261012/`.
 HIP and SYCL compilers were not found on the execution host's PATH; those builds
 remain unverified. The long certification campaign remains disabled.
+
+## Native repair follow-up, 2026-10-12
+
+R03-ADMISSION passed three unchanged-after-red native tests, the three original
+R01/R02/R03 probes, G0 51/51 and four reference mutants. Const callbacks now read
+without COW. Standalone capture admission retains its original conservative
+per-buffer charge; cache-wide allocation counting still deduplicates actual
+payload identities. Published rewrites charge detached payloads and directories.
+The unchanged native validation and transfer executables now pass 972 and 1548
+checks. The snapshot executable still fails `growth never reallocates the
+retained payload`: the test requires pointer retention even when `dirty=3` or
+`dirty=0` rewrites that prefix. Sharing the old address for different bytes would
+mutate the ancestor. This failure is retained and is not counted as a PASS.
+
+The rebuilt actual CUDA SUT and separate fresh-process oracle passed three
+controller-boundary tests and registered G3-004. There were 17 full-vocabulary
+comparisons, maximum absolute error 0.0, 175 oracle-computed tokens and 28
+retained-image-after-generation byte audits. Six hot appends computed one token
+each; measured COW was 216 pages / 452984832 bytes. The maximum tracked VMM bytes
+sampled after those appends was 578813952; this excludes model arenas and host
+memory and is not a process-wide peak. The profile remains unqualified.
+[current-native-validation.json](current-native-validation.json) records the
+executed IDs, exact source/binary/model/profile hashes and limits. Raw archive
+SHA-256: `56fd895e88e79e31899e5ae5e7fe1b2d30ee492fa2dbd2e89de6d9c095a5310d`.
+
+C01-EXACT adds and validates a read-only native cache lookup for a completely
+consumed history. Legacy request matching remains unchanged. One CPU lookup
+test, three original host probes, G0 and mutants passed. Its first new fixture
+omitted its steering setting; that failed run was retained, the fixture setup
+was corrected, and a fresh red/green cycle preserved the same assertions.
+This lookup is not yet connected to the native inference driver. It was added
+after the CUDA model measurements; those measurements pin the preceding source.
+
+[queue-followup-validation.json](queue-followup-validation.json) records both
+follow-up tickets, including red and failed runs. Their ledger lives in the
+owned `primary-queue-20261012T031643-admission` execution directory. Raw archive
+SHA-256: `5bda1950cafaed03c8e05c8a27a230f843cb5b1c8e7f0423cb9192d7f6ab8c1d`.
+Next: connect exact native cache lookup and checked snapshot restore to the
+canonical API, then run forced sibling/fresh-oracle and cache-miss tests.

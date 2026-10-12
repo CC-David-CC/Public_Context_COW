@@ -83,6 +83,23 @@ public:
     // Saturation makes an overflowing estimate fail admission before resize.
     size_t allocation_peak(size_t n) const {
         size_t total = bytes();
+        // Capture rewrites may detach published or shared views after resize.
+        // Admission includes those payloads and replacement view directories,
+        // even for a same-size capture or rewind with no growth allocation.
+        size_t retained = std::min(n, size_), detachable = 0;
+        for (const auto& segment : segments_) {
+            const size_t length = std::min(retained, segment.length);
+            if (length && (segment.published || segment.payload.use_count() > 1)) {
+                if (!add(total, length) || !add(detachable, 1)) return SIZE_MAX;
+            }
+            retained -= length;
+        }
+        if (detachable) {
+            size_t views = segments_.size();
+            if (detachable > SIZE_MAX / 2 || !add(views, detachable * 2) ||
+                views > SIZE_MAX / sizeof(Segment) ||
+                !add(total, views * sizeof(Segment))) return SIZE_MAX;
+        }
         if (n <= size_) return total;
         const size_t spare = writable_back() ? segments_.back().payload->capacity() -
                                                    segments_.back().payload->size() : 0;
@@ -133,7 +150,10 @@ public:
 
     // fn(pointer, count, absolute_offset); false aborts a transfer immediately.
     template<class Fn> bool visit(size_t offset, size_t count, Fn fn) {
-        return visit_impl(*this, offset, count, fn);
+        if constexpr (std::is_invocable_r_v<bool, Fn, const uint8_t*, size_t, size_t>)
+            return visit_impl(static_cast<const ConversationBuffer&>(*this), offset, count, fn);
+        else
+            return visit_impl(*this, offset, count, fn);
     }
     template<class Fn> bool visit(size_t offset, size_t count, Fn fn) const {
         return visit_impl(*this, offset, count, fn);
@@ -253,7 +273,8 @@ private:
                     auto& writable = self.segments_[i];
                     if (!fn(writable.payload->data() + writable.offset + offset - begin, n, offset)) return false;
                 } else {
-                    if (!fn(segment.payload->data() + segment.offset + offset - begin, n, offset)) return false;
+                    const uint8_t* data = segment.payload->data() + segment.offset + offset - begin;
+                    if (!fn(data, n, offset)) return false;
                 }
                 offset += n; count -= n;
             }

@@ -64,7 +64,11 @@ struct ConversationKv {
         k.for_each_payload(fn); v.for_each_payload(fn); k_scale.for_each_payload(fn);
         v_scale.for_each_payload(fn); pooled.for_each_payload(fn);
     }
-    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
+    // Standalone capture admission charges every buffer independently. Cache
+    // accounting uses bytes(seen) to count actual shared allocations once.
+    size_t bytes() const {
+        return k.bytes() + v.bytes() + k_scale.bytes() + v_scale.bytes() + pooled.bytes();
+    }
 };
 
 struct ConversationKvReuse {
@@ -83,7 +87,12 @@ struct ConversationKvReuse {
         for (const auto& layer : kv) layer.visit_payloads(fn);
         for (const auto& s : stages) s.visit_payloads(fn);
     }
-    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
+    size_t bytes() const {
+        size_t n = kv.capacity() * sizeof(ConversationKv) + stages.capacity() * sizeof(ConversationKvReuse);
+        for (const auto& layer : kv) n += layer.bytes();
+        for (const auto& s : stages) n += s.bytes();
+        return n;
+    }
 };
 
 /// Layer-split parking: each running checkpoint holds the first stage's state and, in `stage_parts`, one part per
@@ -194,7 +203,14 @@ struct SavedConversation {
         for (const auto& s : stage_images) s.visit_payloads(fn);
         for (const auto& k : kv) k.visit_payloads(fn);
     }
-    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
+    size_t bytes() const {
+        size_t n = live.bytes() + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
+                   kv.capacity() * sizeof(ConversationKv);
+        for (const auto& s : stage_images) n += s.bytes();
+        for (const auto& c : checkpoints) n += c.bytes();
+        for (const auto& k : kv) n += k.bytes();
+        return n;
+    }
 };
 
 template<class Token>
@@ -286,6 +302,22 @@ public:
     bool can_fit(size_t incoming, size_t held = 0) const {
         return enabled() && held <= budget_ && incoming <= budget_ - held &&
                entries_.size() < slots_ && bytes() <= budget_ - held - incoming;
+    }
+
+    // A canonical API snapshot has already consumed its final token. Unlike
+    // request-prefill matching below, this boundary requires the entire live
+    // history. The returned image is read-only and valid until cache mutation.
+    template<class Token>
+    const SavedConversation* exact(const std::vector<Token>& ids,
+                                  const std::vector<ConversationImageKey>& images, bool cvec) const {
+        if (ids.empty()) return nullptr;
+        for (size_t i = entries_.size(); i-- > 0;) {
+            const auto& entry = entries_[i];
+            if (entry.cvec == cvec && entry.live.ids.size() == ids.size() &&
+                std::equal(entry.live.ids.begin(), entry.live.ids.end(), ids.begin()) &&
+                entry.live.imgs == images) return &entry;
+        }
+        return nullptr;
     }
 
     template<class Token>
