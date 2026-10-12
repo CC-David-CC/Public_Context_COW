@@ -438,3 +438,12 @@ box-git:/srv/data/git/strata-private.git remote. The WIP calibration commit
 verified. Do not push further work to GitHub or update the existing draft PR
 until the user explicitly authorizes publication again. Calibration and the
 remaining implementation queue continue privately.
+
+## Serving-path check, 2026-10-12
+
+The omitted-expert repair belongs to branch_driver and fresh_driver; the ordinary
+serving runner already sets drive.d.plan = ver.plan_sink(). The private build
+passed the existing seven-request A/B/A serving smoke without a further wiring
+change. Treat this as bounded serving/cache regression evidence, not proof that
+batched prefill matches the token-step numerical operator. No test assertion
+was changed. Evidence is private-serving-validation.json.

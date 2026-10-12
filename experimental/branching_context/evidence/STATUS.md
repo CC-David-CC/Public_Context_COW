@@ -562,3 +562,22 @@ unqualified profile binding; final frozen-profile validation is pending. A direc
 audit of the first seven completed forwards checked saved logit SHA-256, finite
 values, exact input histories, and consumed/forward counters. The calibration
 process remained live; no rerun was launched.
+
+## Private build serving smoke, 2026-10-12
+
+At the user's request, the normal persistent serving engine was exercised through
+StrataEngine with real Q8_0 weights and FP16 KV, using the unchanged existing
+conversation_cache_parity.py reuse assertions. Seven requests passed in 124.62
+seconds: two baseline requests with parked-conversation cache disabled, and five
+candidate requests covering A, B, A continuation, B return, and checkpoint return.
+A continuation restored 33 prompt tokens after B; subsequent B/A returns reused
+28/48 tokens. Generated IDs and required main-model state fingerprints agreed.
+The baseline still uses live-prefix reuse and is not a completely uncached oracle.
+
+This used the ordinary binary SHA-256 e5a575d5a7c96a14a7365b6e1ac6bf8e35ef8832b9c9424a1871585a9dc6414d,
+not either private driver. The ordinary runner already binds its expert plan.
+No additional serving wiring fix was needed for this smoke. No HTTP listener
+was started. Full-vocabulary logit equivalence, batching and broad production
+qualification remain unproven. Calibration yielded between requests and its
+hold was removed after the serving processes exited. Evidence:
+[private-serving-validation.json](private-serving-validation.json).
