@@ -181,6 +181,9 @@ struct SavedConversation {
     ConversationCheckpoint live;
     std::vector<ConversationCheckpoint> checkpoints;
     std::vector<ConversationKv> kv; // main layers followed by the draft layer
+    // Optional numerical frontier for the private consumed-boundary cache.
+    // Ordinary session files omit it; their external manifest binds logits.
+    std::vector<float> next_logits;
     bool cvec = true;
     // with a layer split, the later stages' own images, one per stage, in stage order
     std::vector<SavedConversation> stage_images;
@@ -192,7 +195,7 @@ struct SavedConversation {
     }
 
     template<class Seen> size_t bytes(Seen& seen) const {
-        size_t n = live.bytes() + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
+        size_t n = live.bytes() + next_logits.capacity() * sizeof(float) + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
                    kv.capacity() * sizeof(ConversationKv);
         for (const auto& s : stage_images) n += s.bytes(seen);
         for (const auto& c : checkpoints) n += c.bytes();
@@ -204,7 +207,7 @@ struct SavedConversation {
         for (const auto& k : kv) k.visit_payloads(fn);
     }
     size_t bytes() const {
-        size_t n = live.bytes() + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
+        size_t n = live.bytes() + next_logits.capacity() * sizeof(float) + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
                    kv.capacity() * sizeof(ConversationKv);
         for (const auto& s : stage_images) n += s.bytes();
         for (const auto& c : checkpoints) n += c.bytes();

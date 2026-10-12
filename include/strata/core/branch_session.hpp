@@ -7,6 +7,7 @@
 
 namespace strata::core {
 struct BranchSessionSnapshot;
+struct SavedConversation;
 using BranchSessionImage = std::shared_ptr<const BranchSessionSnapshot>;
 struct BranchSessionPool {
     void* address = nullptr;
@@ -64,6 +65,10 @@ public:
     bool write(const std::string& path, size_t& bytes, std::string& error);
     bool load(const std::string& path, const std::vector<int32_t>& expected_ids,
               const std::vector<float>& frontier, std::string& error);
+    bool host_capture_bytes(size_t& bytes, std::string& error) const;
+    bool capture_host(SavedConversation& image, std::string& error);
+    bool restore_host(const SavedConversation& image, const std::vector<int32_t>& expected_ids,
+                      const std::vector<float>& frontier, std::string& error);
     const std::vector<int32_t>& ids() const { return ids_; }
     const std::vector<float>& logits() const { return logits_; }
     std::vector<BranchSessionPool> pools() const;

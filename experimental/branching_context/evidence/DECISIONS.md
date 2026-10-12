@@ -262,3 +262,27 @@
   and manifest hash, exact fresh-process logits, unchanged canonical record,
   and zero forward-token work on both cold and subsequent hot materialization.
   G0 51 and four mutants passed. Existing pinned CUDA binaries were used.
+
+## 2026-10-12: actual native RAM-cache adapter
+
+- Use the existing `SavedConversation` numerical checkpoint and
+  `ConversationCache`, with an optional consumed next-logit frontier. Session
+  files still omit that frontier and use the existing outer manifest. No
+  canonical history/controller representation was added.
+- RAM capture/restore is private to a fixed-model native process. Exact full
+  history lookup checks all tokens; mismatches return without changing device
+  state. Restore validates geometry and allocates replacement history/frontier
+  before touching private device state. Native RNG/grammar are not inferred.
+- Admit capture under a 1 GiB / eight-entry derived cache. Capacity charges
+  include running state, frontier and metadata; K/V allocation metrics enumerate
+  actual shared payload identities. The existing copy metric counts host COW
+  clones, not device-to-host capture traffic or process RSS. No RAM savings or
+  populated long-prefix sharing is claimed by the short test.
+- Real Q8_0/FP16 CUDA sibling tests made six fresh comparisons with maximum
+  error 0.0, restored twice with zero prefix forward work, preserved a mismatched
+  history as a read-only miss, and released host payloads on cache clear.
+  Unchanged native support checks, G0 and four mutants passed. The cold identity
+  regression also passed on the newly pinned build.
+- Clear native RAM entries during full numerical-checkpoint eviction. The next
+  ticket connects adapter restoration to automatic canonical materialization;
+  ordinary concurrent serving remains separate work.

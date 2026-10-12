@@ -263,3 +263,31 @@ from the clean red assertion. Assertions were unchanged between clean red and
 green. This test used the existing pinned Q8_0/FP16 binaries and an unqualified
 profile; it does not certify G1 or G2. Native RAM-cache inference integration
 remains the next ticket.
+
+## C01-RAM, 2026-10-12
+
+PASS for the new native RAM-cache adapter test on llm-49 / r4090. Actual
+`ConversationCache` capture stores numerical state and consumed frontier;
+`BranchSession` validates complete history and runtime geometry before restoring
+private device state. Controller/RNG/grammar remain in the canonical store.
+Six fresh-process comparisons (two different forced two-token suffixes, before
+the suffix and after each consumed token) matched exactly. Both RAM restores
+computed zero prefix tokens. A changed full prefix returned a miss without
+changing the active consumed position. Cache clear released all K/V payload
+allocations. Measured cache capacity charge was 119373844 bytes, including
+313344 K/V payload bytes; this excludes allocator/control-block overhead.
+
+New CUDA binaries were built and fingerprinted. Four unchanged native
+executables passed 434 session, 972 validation, 1548 transfer and 4219 cache
+checks. The cold-to-resident regression passed again on these binaries.
+G0 51/51 and four reference mutants passed, without skips or xfails.
+The profile is unqualified; this is not G1-G5 certification.
+
+[native-ram-validation.json](native-ram-validation.json) records executed IDs,
+source/build/model hashes and measurements. Raw archive SHA-256:
+`f1401dd2392e86a6ef3abcd539c4337883b4e8f7f91a2c91ee5bcd686ed96df9`.
+The native RAM cache is private to one fixed-model process and one active
+lease. The adapter is exercised from checked canonical history leases, but
+automatic canonical cache-miss routing and ordinary concurrent conversation
+slots are still outstanding. Full checkpoint eviction now clears native RAM
+entries as well as hot handles and disk checkpoints.

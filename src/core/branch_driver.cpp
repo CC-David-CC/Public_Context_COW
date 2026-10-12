@@ -1,6 +1,7 @@
 #include "strata/core/branch_driver.hpp"
 #include "strata/core/branch_session.hpp"
 #include "strata/core/branch_handles.hpp"
+#include "strata/core/conversation_cache.hpp"
 #include <exception>
 #include <fstream>
 #include <iomanip>
@@ -36,6 +37,8 @@ int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, Ses
     forward.set_head_sampling(false); // forced inputs; the API owns RNG/grammar
     BranchHandleCounters handle_work;
     BranchHandles<BranchSessionImage> images(handle_work);
+    ConversationCache ram_cache(size_t(1024) * 1024 * 1024, 8);
+    uint64_t ram_hits = 0, ram_misses = 0;
     std::vector<float> logits((size_t)forward.vocab());
     std::cout << "{\"status\":\"ready\",\"vocab\":" << forward.vocab()
               << ",\"capacity\":" << state.max_cells << "}" << std::endl;
@@ -105,6 +108,55 @@ int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, Ses
             out.close();
             if (!out) { error_reply("frontier write failed"); continue; }
             std::cout << "{\"status\":\"ok\",\"bytes\":" << session.logits().size()*sizeof(float) << "}" << std::endl;
+        } else if (command == "park") {
+            std::string extra;
+            size_t estimate = 0;
+            if ((in >> extra) || !session.host_capture_bytes(estimate, error)) {
+                error_reply(error.empty() ? "park takes no arguments" : error); continue;
+            }
+            if (!ram_cache.make_room(estimate)) { error_reply("RAM checkpoint admission refused"); continue; }
+            SavedConversation image;
+            if (!session.capture_host(image, error)) { error_reply(error); continue; }
+            if (!ram_cache.put(std::move(image))) { error_reply("RAM checkpoint admission refused"); continue; }
+            const auto metrics = ram_cache.storage_metrics();
+            std::cout << "{\"status\":\"ok\",\"consumed\":" << session.ids().size()
+                      << ",\"bytes\":" << ram_cache.bytes() << ",\"payload_bytes\":" << metrics.payload_bytes
+                      << ",\"entries\":" << ram_cache.size() << "}" << std::endl;
+        } else if (command == "activate") {
+            std::string path, extra;
+            if (!(in >> std::quoted(path)) || (in >> extra)) { error_reply("activate requires exact history path"); continue; }
+            std::ifstream input(path);
+            std::vector<int32_t> ids;
+            int64_t token;
+            bool valid = bool(input);
+            while (input >> token) {
+                if (token < 0 || token >= forward.vocab() || ids.size() >= (size_t)state.max_cells) {
+                    valid = false; break;
+                }
+                ids.push_back((int32_t)token);
+            }
+            if (!valid || !input.eof() || ids.empty()) { error_reply("invalid exact RAM history"); continue; }
+            const auto* image = ram_cache.exact(ids, {}, false);
+            if (!image) {
+                ++ram_misses;
+                std::cout << "{\"status\":\"ok\",\"hit\":false}" << std::endl;
+                continue;
+            }
+            if (image->next_logits.size() != (size_t)forward.vocab() ||
+                !session.restore_host(*image, ids, image->next_logits, error)) {
+                error_reply(error.empty() ? "invalid cached frontier extent" : error); continue;
+            }
+            ++ram_hits;
+            std::cout << "{\"status\":\"ok\",\"hit\":true,\"consumed\":" << session.ids().size() << "}" << std::endl;
+        } else if (command == "ram_clear") {
+            const auto count = ram_cache.clear();
+            std::cout << "{\"status\":\"ok\",\"removed\":" << count << "}" << std::endl;
+        } else if (command == "ram_stats") {
+            const auto metrics = ram_cache.storage_metrics();
+            std::cout << "{\"status\":\"ok\",\"bytes\":" << ram_cache.bytes()
+                      << ",\"entries\":" << ram_cache.size() << ",\"hits\":" << ram_hits << ",\"misses\":" << ram_misses
+                      << ",\"payload_bytes\":" << metrics.payload_bytes << ",\"payload_allocations\":" << metrics.allocations
+                      << ",\"payload_owners\":" << metrics.owners << ",\"copied_bytes\":" << metrics.copied_bytes << "}" << std::endl;
         } else if (command == "write") {
             std::string path, extra;
             if (!(in >> std::quoted(path)) || (in >> extra)) { error_reply("missing checkpoint path"); continue; }

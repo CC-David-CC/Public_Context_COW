@@ -264,6 +264,50 @@ bool BranchSession::write(const std::string& path, size_t& bytes, std::string& e
         return true;
     } catch (const std::exception& e) { return fail(error, e.what()); }
 }
+bool BranchSession::host_capture_bytes(size_t& bytes, std::string& error) const {
+    if (state_ != State::ready || ids_.empty() || logits_.empty())
+        return fail(error, "host capture requires a consumed frontier");
+    const std::vector<ConversationImageKey> images;
+    const std::vector<ConversationCheckpoint> checkpoints;
+    if (!conversation_snapshot_bytes({ids_, images, checkpoints, false}, session_, geometry_, nullptr, bytes, error))
+        return false;
+    if (logits_.size() > (SIZE_MAX - bytes) / sizeof(float)) return fail(error, "host frontier size overflow");
+    bytes += logits_.size() * sizeof(float);
+    return true;
+}
+bool BranchSession::capture_host(SavedConversation& image, std::string& error) {
+    size_t bytes = 0;
+    if (!host_capture_bytes(bytes, error)) return false;
+    try {
+        const std::vector<ConversationImageKey> images;
+        const std::vector<ConversationCheckpoint> checkpoints;
+        SavedConversation captured;
+        if (!conversation_snapshot_save(captured, {ids_, images, checkpoints, false},
+                                        session_, geometry_, nullptr, error)) return false;
+        captured.next_logits = logits_;
+        image = std::move(captured);
+        return true;
+    } catch (const std::exception& e) { return fail(error, e.what()); }
+}
+bool BranchSession::restore_host(const SavedConversation& image, const std::vector<int32_t>& expected_ids,
+                                const std::vector<float>& frontier, std::string& error) {
+    if (state_ == State::unbound || expected_ids.empty() || expected_ids.size() > (size_t)session_.max_cells ||
+        image.live.ids != expected_ids || !image.live.imgs.empty() || !image.checkpoints.empty() || image.cvec ||
+        frontier.empty() || std::any_of(frontier.begin(), frontier.end(), [](float x) { return !std::isfinite(x); }))
+        return fail(error, "invalid host checkpoint history or frontier");
+    if (!conversation_snapshot_validate(image, session_, geometry_, nullptr, error)) return false;
+    try {
+        auto next_ids = expected_ids;
+        auto next_logits = frontier;
+        if (!reset(error)) return false;
+        state_ = State::failed;
+        if (conversation_snapshot_restore(image, session_, geometry_, nullptr, error) != ConversationRestore::restored ||
+            !sync(error)) return false;
+        ids_.swap(next_ids); logits_.swap(next_logits);
+        pending_ = 0; state_ = State::ready;
+        return true;
+    } catch (const std::exception& e) { return fail(error, e.what()); }
+}
 bool BranchSession::load(const std::string& path, const std::vector<int32_t>& expected_ids,
                          const std::vector<float>& frontier, std::string& error) {
     if (state_ == State::unbound || expected_ids.empty() || expected_ids.size() > (size_t)session_.max_cells ||

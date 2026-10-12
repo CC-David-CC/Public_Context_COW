@@ -241,6 +241,7 @@ class StrataBackend:
     def release_checkpoints(self):
         with self._lock:
             self._flush_drops()
+            self._request('ram_clear')
             self._refresh_stats()
 
     def _check(self, lease):
@@ -318,6 +319,40 @@ class StrataBackend:
         weakref.finalize(image, _drop_image, weakref.ref(self), image.handle)
         lease.image_identity = identity
         return image
+
+    def park(self, lease):
+        self._check(lease)
+        if not lease.bound or lease.consumed <= 0:
+            raise InvalidOperation('RAM parking requires a consumed native lease')
+        response = self._request('park')
+        if response['consumed'] != lease.consumed:
+            raise IntegrityError('Parked native history differs from checked lease')
+        return response
+
+    def restore_cached(self, lease, history):
+        self._check(lease)
+        history = tuple(history)
+        if not history or len(history) > self.profile['execution']['capacity'] or any(
+                type(t) is not int or not 0 <= t < self.vocab_size for t in history):
+            raise InvalidOperation('Invalid canonical RAM-cache history')
+        path = self._directory / 'ram-history.ids'
+        path.write_text(' '.join(map(str, history)))
+        try:
+            response = self._request('activate ' + json.dumps(str(path)))
+        finally:
+            path.unlink(missing_ok=True)
+        if not response['hit']:
+            return False
+        if response['consumed'] != len(history):
+            raise IntegrityError('RAM restored history differs from canonical inputs')
+        lease.bound, lease.consumed = True, response['consumed']
+        lease.image_identity = None
+        self._refresh_stats()
+        return True
+
+    def clear_cached_histories(self):
+        with self._lock:
+            return self._request('ram_clear')['removed']
 
     def restore(self, lease, state, *, history, frontier):
         self._check(lease)
