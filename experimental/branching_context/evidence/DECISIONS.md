@@ -455,3 +455,7 @@ User selected llm-60 as primary and llm-49 for agreement checks. Preserve each h
 ## 2026-10-12 E02 evaluator process boundary
 
 Use actual Linux bubblewrap namespaces for evaluator execution, with read-only runtime/input mounts and disposable scratch space. Passing detached Python dictionaries alone would not isolate filesystem or network effects. llm-49 executed namespace and adversarial test probes successfully. Do not substitute an unrestricted subprocess when isolation is unavailable; unsupported hosts fail closed. Preserve candidate history/controller representation and compose evaluation provenance separately.
+
+## 2026-10-12 selection and adoption
+
+Read only hash-checked evaluation records. Require explicit mandatory check names, all recorded mandatory checks PASS, no unresolved checks, and a finite available score. Reject mixed evaluator/fixture/environment specifications and contradictory judgments of one snapshot. Order eligible candidates by declared metric, fewer appended canonical inputs since task root, stable snapshot ID, then evaluation ID. Reuse Store.move revision CAS and retry receipts for adoption. No alternate branch representation.

@@ -606,3 +606,7 @@ Executed deterministic E02 red assertion on llm-49, then passed the unchanged te
 ## 2026-10-12 E02 report integration
 
 Isolated scoring now composes into the existing immutable evaluation record and persists through Store.put_evaluation. Executed assertion red then unchanged green for report/snapshot identity, source/fixture/runtime fingerprints, reopen, foreign task-root rejection, unchanged controller/history/branch reference. Both E02 CPU tests passed, G0 51/51, mutants 4/4. Four registered G4 methods (003/004/005/010) are written but unexecuted pending frozen calibration. No gate PASS or queue VALIDATED claim. Evidence: `evaluator-record-composition.json`.
+
+## 2026-10-12 E03 validated-candidate selection prework
+
+Executed red then unchanged green for validity-first selection, all-failed/unknown/no-report cases, missing checks, unresolved checks, stable ties, incompatible specifications, conflicting judgments, retry receipt and stale CAS rejection. All six A/B/C input orders select C (8), excluding B (10 with FAIL). G0 51/51; reference mutants 4/4. Added registered G4-006/007 with real model histories and an actual spawned-process CAS race; not yet executed. Evidence: `evaluation-selection-prework.json`. This remains prework while N03 calibration runs.

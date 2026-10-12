@@ -14,6 +14,52 @@ import time
 from .store import InvalidOperation, _id, _json_bytes, _decode
 
 
+def choose_validated(store, evaluation_ids, *, mandatory):
+    """Select by metric, fewer appended tokens, then stable snapshot identity.
+
+    Read hash-checked records from the store. Mixed evaluation specifications or
+    conflicting judgments of one candidate require explicit resolution by the
+    caller; never silently cherry-pick the favorable report. Adoption remains
+    Store.move with its existing revision and retry-receipt semantics.
+    """
+    mandatory = tuple(mandatory)
+    if not mandatory or len(set(mandatory)) != len(mandatory):
+        raise InvalidOperation('Mandatory checks must be unique and nonempty')
+    for name in mandatory:
+        _text(name)
+    comparable = ('task_root', 'evaluator', 'fixtures', 'metric', 'seed', 'environment', 'effect_policy')
+    specification = None
+    judgments = {}
+    eligible = []
+    for identity in evaluation_ids:
+        record = store.get_evaluation(identity)
+        signature = _json_bytes({name: record[name] for name in comparable})
+        if specification is None:
+            specification = signature
+        elif signature != specification:
+            raise InvalidOperation('Cannot compare different evaluation specifications')
+        snapshot = record['snapshot_id']
+        outcomes = record['outcomes']
+        judgment = _json_bytes(outcomes)
+        if snapshot in judgments and judgments[snapshot] != judgment:
+            raise InvalidOperation('Conflicting evaluations of the same candidate')
+        judgments[snapshot] = judgment
+        checks = outcomes['mandatory']
+        if (outcomes['unresolved'] or outcomes['score'] is None
+                or any(checks.get(name) != 'PASS' for name in mandatory)
+                or any(status != 'PASS' for status in checks.values())):
+            continue
+        # Re-read canonical history; never trust a score's claimed token count.
+        root, history = store.lineage(snapshot)
+        task_root, task_history = store.lineage(record['task_root'])
+        if root != task_root:
+            raise InvalidOperation('Candidate and task root have different histories')
+        score = outcomes['score']
+        preference = -score if record['metric']['order'] == 'maximize' else score
+        eligible.append(((preference, len(history)-len(task_history), snapshot, identity), record))
+    return min(eligible, key=lambda item: item[0])[1] if eligible else None
+
+
 def evaluate(store, snapshot_id, specification):
     """Score a retained snapshot and publish a separate immutable report."""
     _fields(specification, 'task_root evaluator fixtures metric seed mandatory timeout_seconds',
