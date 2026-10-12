@@ -459,3 +459,7 @@ Use actual Linux bubblewrap namespaces for evaluator execution, with read-only r
 ## 2026-10-12 selection and adoption
 
 Read only hash-checked evaluation records. Require explicit mandatory check names, all recorded mandatory checks PASS, no unresolved checks, and a finite available score. Reject mixed evaluator/fixture/environment specifications and contradictory judgments of one snapshot. Order eligible candidates by declared metric, fewer appended canonical inputs since task root, stable snapshot ID, then evaluation ID. Reuse Store.move revision CAS and retry receipts for adoption. No alternate branch representation.
+
+## 2026-10-12 host-specific evaluator isolation limitation
+
+Preserve the failed llm-60 E02 test and AppArmor denial logs. Do not weaken evaluator isolation or disable host policy to convert it to PASS. llm-49 remains the available isolated-evaluation host; llm-60 remains the primary inference host. This limits G4 host qualification, not the correctness of an already measured GPU forward.

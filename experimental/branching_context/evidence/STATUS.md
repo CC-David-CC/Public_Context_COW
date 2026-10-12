@@ -614,3 +614,7 @@ Executed red then unchanged green for validity-first selection, all-failed/unkno
 ## 2026-10-12 E04 four-future workflow preparation
 
 Executed the missing-real-demonstration red assertion on llm-49. Added run_real to the existing demo plus four registered G4 methods: A/B/C and rewound D, independent persisted evaluation, validity-first C adoption, saved-checkpoint eviction, native engine restart, fresh oracle at every suffix boundary, and direct-counter cold reconstruction of winner/losers. Syntax checked only after implementation. Green and all four registered cases remain UNEXECUTED pending frozen calibration. All 11 registered G4 methods now exist; this is method coverage, not passing acceptance. Evidence: `evaluated-futures-prework.json`.
+
+## 2026-10-12 evaluator host prerequisite and E04 regressions
+
+E04 addition preserves the standalone toy demo; executed toy command passed, G0 51/51 and mutants 4/4 on llm-49. Real E04 green remains unexecuted. On llm-60 the unchanged E02 isolation test FAILED (one failure, zero skips): expected PASS but sandbox returned ERROR. Kernel audit confirms AppArmor unprivileged_userns denies bwrap setpcap/net_admin; network namespace creation fails. Evaluator-dependent G4 is BLOCKED on llm-60 under current host policy. llm-49 has executed working isolation; prioritize llm-60 for inference and run evaluator-dependent acceptance on llm-49 after its own baseline qualification. No security policy was changed. Evidence: `llm60-evaluator-prerequisite.json`.
