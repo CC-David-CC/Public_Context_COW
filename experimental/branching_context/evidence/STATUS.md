@@ -690,3 +690,11 @@ Added actual BranchingModel/FreshOracle operation execution with independent gra
 ### llm-60 numerical baseline frozen (2026-10-12)
 
 Completed all 27 fresh-process forwards and 18 repeat comparisons. All comparisons have maximum absolute error 0, freezing atol=0/rtol=0 by the unchanged 2x-baseline rule. Finalizer independently read/hash-checked all raw float32 frontiers, token fixtures, model receipts, commands, binaries and consumed-work counters. Original finalization failed on descriptive operator text; exact known descriptions are now accepted only after identical executable hashes/commands, preserving execution/model IDs and both descriptions. Unknown description rejection, N03 profile test, G0 51/51 and reference mutants 4/4 pass. Cumulative G1 is RUNNING on current primary checkout; calibration alone is not gate PASS. Evidence: `llm60-frozen-calibration.json`.
+
+### G1 campaign deliberately interrupted for draft scope (2026-10-12)
+
+Stopped the verified G1 process tree after 28 completed numerical comparisons, max absolute error 0.0. The first registered boundary test did not finish; zero completed registered methods and no G1 PASS. G0 had passed 51/51. Original stdout/stderr, traces, measured bytes/counters and SIGINT receipt preserved. Prioritized focused GPU checks consistent with the requested rough prototype validation. Evidence: `llm60-g1-interrupted.json`.
+
+### Real eleven-operation smoke PASS (2026-10-12)
+
+llm-60 completed append/fork/reseed/generate/rewind/checkpoint/evict/evaluate/retry/release/GC: 11 operations, 14 fresh-oracle boundaries, 464 oracle tokens, maximum absolute error 0 with frozen atol=0/rtol=0. Native work consumed 68 tokens; 33 leases acquired/released; zero integrity mismatches and VMM failures. Test elapsed 537.328 seconds, initially overlapping G1. Retained store/report/traces on host; local raw report hashes recorded. One deterministic smoke sequence only, not registered G5-002 or gate PASS. Evidence: `llm60-state-machine-smoke.json`.

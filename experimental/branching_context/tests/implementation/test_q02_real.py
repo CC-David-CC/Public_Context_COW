@@ -3,7 +3,6 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import tempfile
 import unittest
 
 
@@ -18,12 +17,13 @@ class RealProgramTests(unittest.TestCase):
         token = profile['fixtures']['suffix_a'][0]
         program = [dict(op=op, source='root', out='s'+str(i), token=token, seed=i)
                    for i, op in enumerate(module.OPERATIONS)]
-        with tempfile.TemporaryDirectory() as directory:
-            report = run(profile, Path(directory), program, seed=17)
-            self.assertEqual(report['status'], 'PASS', report.get('failure'))
-            self.assertEqual(report['completed_operations'], len(program))
-            self.assertGreaterEqual(report['oracle_requests'], len(program)+1)
-            self.assertEqual(set(report['executed_operations']), set(module.OPERATIONS))
+        directory = Path(os.environ['CTT_STATE_MACHINE_OUTPUT'])
+        self.assertFalse(directory.exists(), 'Use a new retained evidence directory for each run')
+        report = run(profile, directory, program, seed=17)
+        self.assertEqual(report['status'], 'PASS', report.get('failure'))
+        self.assertEqual(report['completed_operations'], len(program))
+        self.assertGreaterEqual(report['oracle_requests'], len(program)+1)
+        self.assertEqual(set(report['executed_operations']), set(module.OPERATIONS))
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)

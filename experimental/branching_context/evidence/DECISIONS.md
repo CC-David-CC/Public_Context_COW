@@ -507,3 +507,7 @@ Measured both workspace and temporary-store mounts. llm-49 workspace is ext4 but
 ### Frozen baseline operator descriptions (2026-10-12)
 
 Preserved the measured calibration and pinned execution identity. Their operator descriptions differ in prose, although full commands and actual executable hashes match. Finalizer recognizes only this exact historical pair after binary/command validation, retains the baseline description separately, and rejects an unknown/batched description in an executed negative test. No tolerance, raw numerical result, reference equation or model/backend identity changed.
+
+### Draft validation priority restored (2026-10-12)
+
+The user clarified that full gate certification is not required for the initial prototype. Interrupted the long page-boundary G1 campaign without modifying its tests or tolerances. Preserve it as incomplete, not failed numerical evidence or a passing gate. Continue focused real-GPU checks of the implemented workflows before adding more features.
