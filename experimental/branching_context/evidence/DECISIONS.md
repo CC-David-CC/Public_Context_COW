@@ -451,3 +451,7 @@ was changed. Evidence is private-serving-validation.json.
 ## 2026-10-12 primary host and supporting evidence
 
 User selected llm-60 as primary and llm-49 for agreement checks. Preserve each hardware/build calibration separately; do not pool repeats into a falsely complete profile. Saved llm-60 exact ordinary-step and evaluation noninterference measurements are supporting observations only, not frozen-profile gate admission. No GitHub publication.
+
+## 2026-10-12 E02 evaluator process boundary
+
+Use actual Linux bubblewrap namespaces for evaluator execution, with read-only runtime/input mounts and disposable scratch space. Passing detached Python dictionaries alone would not isolate filesystem or network effects. llm-49 executed namespace and adversarial test probes successfully. Do not substitute an unrestricted subprocess when isolation is unavailable; unsupported hosts fail closed. Preserve candidate history/controller representation and compose evaluation provenance separately.

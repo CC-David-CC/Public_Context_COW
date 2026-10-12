@@ -598,3 +598,7 @@ See evaluation-records-prework.json. N03 remains the active validation ticket.
 ## 2026-10-12 llm-60 supporting GPU checks
 
 Two real-backend supporting unittest methods passed, zero failures/skips: ordinary forced-step versus fresh oracle (eight forwards, four exact comparisons, 20 consumed tokens) and evaluation-record noninterference (33-token prefix plus three-token suffix, two fresh oracle requests/69 tokens). Maximum absolute error was zero. Snapshot bytes and branch head stayed unchanged after record publication/reopen. Remote raw artifacts were copied and every file SHA-256 verified. See `llm60-supporting-validation.json`. This does not qualify G4 or complete N03/E01: baseline calibration is still running and registered acceptance remains pending. Normal batched-prefill equivalence remains unresolved.
+
+## 2026-10-12 E02 isolated evaluation prework
+
+Executed deterministic E02 red assertion on llm-49, then passed the unchanged test with a Linux bubblewrap evaluator worker. Candidate inputs recursively read-only, recorded fixture bytes provided without executing tools, host store unmounted, network namespace isolated, independent RNG seeded per evaluation. Test probes blocked host-file writes/network access and distinct ERROR/UNKNOWN/FAIL/TIMEOUT outcomes. G0 passed 51/51 and all four reference mutants were detected. See `evaluator-isolation-prework.json`. No registered G4 acceptance run or ticket VALIDATED claim; GPU/controller noninterference and report composition remain pending.
