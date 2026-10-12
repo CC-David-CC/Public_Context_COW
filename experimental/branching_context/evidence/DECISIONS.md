@@ -511,3 +511,7 @@ Preserved the measured calibration and pinned execution identity. Their operator
 ### Draft validation priority restored (2026-10-12)
 
 The user clarified that full gate certification is not required for the initial prototype. Interrupted the long page-boundary G1 campaign without modifying its tests or tolerances. Preserve it as incomplete, not failed numerical evidence or a passing gate. Continue focused real-GPU checks of the implemented workflows before adding more features.
+
+### Serial comparison interpretation (2026-10-12)
+
+Use pristine upstream source 7695859a for the stock baseline, not a cache-disabled modified binary. Keep ordinary-serving comparison separate from the experimental immutable API. Retain the measured slower total and faster reused calls without changing cache budgets or fitting numerical tolerance. Stock and modified serving agree on generated IDs; the independent fresh oracle checks full API logits. These facts do not establish batched-prefill numerical equivalence. All work remains local/private.
