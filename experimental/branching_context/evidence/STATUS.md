@@ -244,3 +244,22 @@ owned `primary-queue-20261012T031643-admission` execution directory. Raw archive
 SHA-256: `5bda1950cafaed03c8e05c8a27a230f843cb5b1c8e7f0423cb9192d7f6ab8c1d`.
 Next: connect exact native cache lookup and checked snapshot restore to the
 canonical API, then run forced sibling/fresh-oracle and cache-miss tests.
+
+## C01-COLD, 2026-10-12
+
+PASS: `test_cold_resident_identity_and_no_replay` on llm-49 / r4090.
+The checked disk checkpoint's full-history identity now survives replacement
+with a resident native image. The saved payload measured 119371292 bytes,
+including 118378012 native-state bytes; its SHA-256 matched the manifest.
+The independent nine-token fresh forward matched exactly (maximum logit error
+0.0). Both the cold restoration and the next hot materialization computed zero
+prefix tokens. G0 51/51 and four reference mutants passed. No skips or xfails.
+
+[cold-identity-validation.json](cold-identity-validation.json) records executed
+IDs, commands, binary/profile hashes and measured bytes. Raw archive SHA-256:
+`94a55bdb528ce357db21bd150afc7b3edf6996b97ac3580d852a9fe4dfe2ba32`.
+Initial command-environment and test-cleanup errors were retained separately
+from the clean red assertion. Assertions were unchanged between clean red and
+green. This test used the existing pinned Q8_0/FP16 binaries and an unqualified
+profile; it does not certify G1 or G2. Native RAM-cache inference integration
+remains the next ticket.

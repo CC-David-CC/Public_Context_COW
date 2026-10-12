@@ -258,7 +258,7 @@ class BranchingModel:
                 resident = self.backend.restore(lease,saved.blob,history=history,frontier=saved.frontier)
                 if resident is not saved.blob:
                     saved = Checkpoint(saved.model_contract_id,saved.execution_profile_id,saved.consumed,
-                        resident,saved.frontier,Checkpoint.digest(resident,saved.frontier))
+                        resident,saved.frontier,Checkpoint.digest(resident,saved.frontier),saved.input_identity)
                     self.cache[snapshot] = saved
             else:
                 self.backend.consume(lease,history)

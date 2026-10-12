@@ -251,3 +251,14 @@
   canonical snapshots and controllers remain in the existing immutable store.
   The primitive's one native CPU case passed after a recorded fixture-setting
   correction and a fresh red/green cycle. It is not an inference integration.
+
+## 2026-10-12: cold-to-resident canonical identity
+
+- Retain `saved.input_identity` when replacing checked disk state bytes with a
+  resident native image. Dropping it turned a subsequent hot lookup into a miss
+  and replayed the prefix. This changes one constructor argument, without new
+  representations or relaxed integrity checks.
+- The real regression passed after a clean red assertion: actual payload size
+  and manifest hash, exact fresh-process logits, unchanged canonical record,
+  and zero forward-token work on both cold and subsequent hot materialization.
+  G0 51 and four mutants passed. Existing pinned CUDA binaries were used.
