@@ -55,6 +55,33 @@ not automatically certify this port. The Python API has no HTTP service,
 database server or GUI dependency and adds no serving route. It currently
 requires POSIX `fcntl` locks and does not import on native Windows Python.
 
+## Validation on upstream main
+
+The port at `ed5c4557` built `strata`, `strata-branch`, `strata-fresh` and eleven
+native support targets on Linux with CUDA 13.3, GCC 15.2 and an RTX 4090. G0
+passed 51/51, the demo passed, all four reference mutants were rejected, and six
+calibration-input tests passed. Nine native support executables and both digest
+tests passed, including 14728 CUDA lifecycle checks and 434 session checks
+covering all four KV layouts with pattern data. The first build exposed two
+missing no-MTP snapshot overloads; the port adds those overloads and retains
+the existing reference-taking callers.
+
+The unchanged registered G3-004 method also passed against a separately linked
+fresh-process oracle using Q8_0 weights and FP16 KV: eight full-vocabulary
+comparisons were exact, 28 retained-byte audits passed, and each of six hot
+appends computed one token with zero prefix recomputation. Each initial child
+shared 24 physical allocations with the root. The run measured 216 COW pages,
+452984832 copied bytes and a sampled tracked-VMM peak of 704643072 bytes. All
+eight image/handle owners were released and the native process closed. The
+case took 74.80 seconds on the shared host; this is not a throughput benchmark.
+
+[The port evidence](evidence/upstream-validation.json) records the executed
+test IDs, direct counters, source/model/build fingerprints and original-report
+hashes. Its machine profile remains unqualified for numerical gate admission;
+G3-004 compares exact float tuples without applying a tolerance. One registered
+case is not a cumulative G3 PASS. HIP/SYCL builds and default serving-path parity
+were not verified, and full G1–G5 certification remains incomplete.
+
 ## Original executed validation
 
 The tested native revision is `d702b68d`, using Qwen3.8-Flash-Next Q8_0 weights,
