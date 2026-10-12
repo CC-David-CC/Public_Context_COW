@@ -447,3 +447,7 @@ passed the existing seven-request A/B/A serving smoke without a further wiring
 change. Treat this as bounded serving/cache regression evidence, not proof that
 batched prefill matches the token-step numerical operator. No test assertion
 was changed. Evidence is private-serving-validation.json.
+
+## 2026-10-12 primary host and supporting evidence
+
+User selected llm-60 as primary and llm-49 for agreement checks. Preserve each hardware/build calibration separately; do not pool repeats into a falsely complete profile. Saved llm-60 exact ordinary-step and evaluation noninterference measurements are supporting observations only, not frozen-profile gate admission. No GitHub publication.

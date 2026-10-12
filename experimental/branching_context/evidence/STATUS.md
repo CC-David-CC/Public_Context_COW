@@ -594,3 +594,7 @@ reference mutants were detected. The registered G4-008 method is written but
 unexecuted; it requires a frozen profile and actual model/oracle continuations.
 E01 is preparatory work, not a validated queue ticket or a gate PASS.
 See evaluation-records-prework.json. N03 remains the active validation ticket.
+
+## 2026-10-12 llm-60 supporting GPU checks
+
+Two real-backend supporting unittest methods passed, zero failures/skips: ordinary forced-step versus fresh oracle (eight forwards, four exact comparisons, 20 consumed tokens) and evaluation-record noninterference (33-token prefix plus three-token suffix, two fresh oracle requests/69 tokens). Maximum absolute error was zero. Snapshot bytes and branch head stayed unchanged after record publication/reopen. Remote raw artifacts were copied and every file SHA-256 verified. See `llm60-supporting-validation.json`. This does not qualify G4 or complete N03/E01: baseline calibration is still running and registered acceptance remains pending. Normal batched-prefill equivalence remains unresolved.
