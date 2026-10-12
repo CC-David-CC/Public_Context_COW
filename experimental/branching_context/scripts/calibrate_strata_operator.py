@@ -19,12 +19,11 @@ from calibration_inputs import execution_settings
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--native-root', type=Path, required=True)
 parser.add_argument('--model-hash-receipt', type=Path)
-parser.add_argument('--oracle-source-revision', default='857ace6cb811f3d32e46afb4aa63816f2e7b8315')
+parser.add_argument('--oracle-source-revision', required=True)
 parser.add_argument('--admission', type=Path)
 parser.add_argument('--destination', type=Path)
 args = parser.parse_args()
 ROOT = args.native_root.resolve()
-ORACLE = ROOT/'build/strata-fresh-pinned'
 DESTINATION = (args.destination or ROOT/'build/strata-q8-operator-calibration.json').resolve()
 OUT = ROOT/('build/q8-operator-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S'))
 OUT.mkdir()
@@ -46,8 +45,9 @@ settings = execution_settings(admission)
 if settings['capacity'] != 4096:
     raise SystemExit('The predeclared calibration matrix requires capacity 4096')
 command = list(admission['oracle_command'])
-if Path(command[0]).resolve() != ORACLE.resolve():
-    raise SystemExit('Admission used a different oracle executable')
+ORACLE = Path(command[0]).resolve(strict=True)
+if sha(ORACLE) != admission.get('oracle_binary_sha256'):
+    raise SystemExit('Oracle differs from the executed admission receipt')
 record = dict(status='RUNNING', pid=os.getpid(), started=time.time(), command=command,
     oracle_sha256=sha(ORACLE), oracle_source_revision=args.oracle_source_revision,
     operator='Verifier.run(T=1); successful recurrent commit; next-token frontier',

@@ -421,3 +421,10 @@ to convolution storage. Ordinary token-step control now exists and agrees on
 the tested fixtures; the former missing-control blocker is resolved, while
 normal batched-prefill equivalence remains unresolved. See
 [projection-comparison-validation.json](projection-comparison-validation.json).
+
+## Bind N03 to executed admission, 2026-10-12
+
+Remove the obsolete hardcoded oracle pathname and default source revision. Use
+the oracle executable from the measured admission receipt, reject a changed binary
+hash, and require explicit source provenance. Keep the calibration matrix and
+tolerance rule unchanged; token-level repeatability does not admit batched prefill.

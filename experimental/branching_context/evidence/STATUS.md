@@ -545,3 +545,20 @@ detected. No gate admission or batched-prefill equivalence is claimed.
 See [projection-comparison-validation.json](projection-comparison-validation.json)
 for executed run IDs, payload sizes, hashes and limitations. The raw archive
 was transferred and its SHA-256 verified locally.
+
+## Corrected operator calibration started, 2026-10-12
+
+N03 recorded an assertion red for the absent frozen baseline. Executed dual-engine
+admission passed with nine simultaneous samples and peak combined GPU allocation
+17136 MiB. The calibration now selects the actual admission oracle and verifies its
+SHA-256, with an explicit source revision instead of the obsolete default. All six
+existing model-free calibration-input tests passed. The full nine-length, three-repeat
+matrix is running as q8-operator-20261012T073213 on llm-49; no frozen tolerance or
+numerical gate PASS exists yet. See n03-admission-validation.json.
+
+N03 interim regression runs N03-0e14968ee33349a18f5981555d9e2385 (G0) and
+N03-90f64d663ce3478097a938e99035688a (mutants) passed. These use the original
+unqualified profile binding; final frozen-profile validation is pending. A direct
+audit of the first seven completed forwards checked saved logit SHA-256, finite
+values, exact input histories, and consumed/forward counters. The calibration
+process remained live; no rerun was launched.
