@@ -161,7 +161,8 @@ class Store:
                          reference_read_bytes=0, reference_reads=0, reference_written_bytes=0,
                          reference_publications=0, reference_entries_scanned=0,
                          root_index_read_bytes=0, root_index_written_bytes=0, root_index_repairs=0,
-                         ancestry_nodes_visited=0)
+                         ancestry_nodes_visited=0, evaluation_read_bytes=0,
+                         evaluation_reads=0, evaluation_written_bytes=0)
         self.root = Path(directory)
         self.objects = self.root / "objects"
         self.root_index = self.root / "root-index"
@@ -453,6 +454,64 @@ class Store:
         except InvalidOperation as exc:
             raise IntegrityError("Invalid stored snapshot fields") from exc
         return record
+
+    def put_evaluation(self, record: dict) -> str:
+        """Publish a report without changing any history, controller or reference."""
+        from .evaluation import validate_record
+        value = validate_record(record)
+        cursor = value['snapshot_id']
+        seen = set()
+        contract = None
+        while cursor is not None:
+            if cursor in seen:
+                raise IntegrityError('Cycle in evaluated snapshot ancestry')
+            seen.add(cursor)
+            snapshot = self.get_snapshot(cursor)
+            if contract is None:
+                contract = snapshot['model_contract_id']
+            elif contract != snapshot['model_contract_id']:
+                raise IntegrityError('Cross-contract evaluated ancestry')
+            cursor = snapshot['parent']
+        if value['task_root'] not in seen:
+            raise InvalidOperation('Evaluation task root must be an ancestor of its candidate')
+        raw = _json_bytes(value)
+        identity = _hash(raw)
+        directory = self.root / 'evaluations'
+        directory.mkdir(exist_ok=True)
+        _sync_dir(self.root)
+        destination = directory / (identity + '.json')
+        if destination.exists():
+            self.get_evaluation(identity)
+            return identity
+        stage = _stage(directory, raw)
+        self._count(evaluation_written_bytes=len(raw))
+        try:
+            self._fault('before_evaluation_publish')
+            try:
+                os.link(stage, destination)
+            except FileExistsError:
+                self.get_evaluation(identity)
+            else:
+                _sync_dir(directory)
+        finally:
+            stage.unlink(missing_ok=True)
+        return identity
+
+    def get_evaluation(self, evaluation_id: str) -> dict:
+        """Read a detached, hash-checked report, never a mutable model snapshot."""
+        from .evaluation import validate_record
+        identity = _id(evaluation_id)
+        try:
+            raw = (self.root / 'evaluations' / (identity + '.json')).read_bytes()
+        except FileNotFoundError as error:
+            raise NotFound('Missing evaluation: ' + identity) from error
+        self._count(evaluation_reads=1, evaluation_read_bytes=len(raw))
+        if _hash(raw) != identity:
+            raise IntegrityError('SHA-256 mismatch in evaluation ' + identity)
+        try:
+            return validate_record(_decode(raw))
+        except InvalidOperation as error:
+            raise IntegrityError('Invalid stored evaluation') from error
 
     def create_root(self, model_contract_id: str,
                     inputs: tuple[int, ...] | list[int],

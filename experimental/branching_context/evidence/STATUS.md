@@ -581,3 +581,16 @@ was started. Full-vocabulary logit equivalence, batching and broad production
 qualification remain unproven. Calibration yielded between requests and its
 hold was removed after the serving processes exited. Evidence:
 [private-serving-validation.json](private-serving-validation.json).
+
+## E01 brought forward during calibration, 2026-10-12
+
+With user authorization to advance independent work during N03, evaluation
+provenance storage now has an executed CPU-only assertion red and unchanged
+green test. Reports use content-addressed canonical JSON in a separate evaluations
+directory, with hash verification, no-overwrite publication and ancestor checks.
+The tests cover reopen, detached reads, source/score identity, malformed records,
+tampering and unchanged snapshot/reference bytes. G0 passed 51/51 and four
+reference mutants were detected. The registered G4-008 method is written but
+unexecuted; it requires a frozen profile and actual model/oracle continuations.
+E01 is preparatory work, not a validated queue ticket or a gate PASS.
+See evaluation-records-prework.json. N03 remains the active validation ticket.
