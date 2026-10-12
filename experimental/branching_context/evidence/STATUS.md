@@ -674,3 +674,7 @@ Copied 138 hash-verified source/test files at d3d67a24 to isolated `python-valid
 ### Q01 explicit draft matrix (2026-10-12)
 
 Added `docs/support-matrix.json`: one pending Q8_0/FP16/T=1/Linux/ext4/CUDA/token-ID/serialized-lease target with ten explicit unsupported, unmeasured or failed categories. CPU declaration test red then unchanged green; llm-60 G0 51/51 and reference mutants 4/4. Registered G5-001 written, unexecuted. Host filesystem observation found llm-49 `/tmp` is tmpfs although its workspace is ext4: prior default temporary CPU stores there exercised tmpfs, and future ext4 matrix runs must set TMPDIR to an ext4 test directory. llm-60 workspace and `/tmp` are ext4. Evidence: `supported-matrix-prework.json`.
+
+### Q02 generator/reducer substep (2026-10-12)
+
+Seeded generator emits append/fork/reseed/generate/rewind/checkpoint/evict/evaluate/retry/release/GC instructions referencing prior results. CPU test checks 10 reproducible 40-step programs and a dependency-sensitive reduction counterexample. Executed red then unchanged green; mutant accepting a different failure signature was caught. llm-60 G0 51/51 and reference mutants 4/4 pass. This is only the generator/reducer: real interpreter, independent logical oracle and GPU campaign remain incomplete. Zero real state-machine sequences executed; registered >=1000 requirement unchanged. Evidence: `state-machine-helper-prework.json`.
