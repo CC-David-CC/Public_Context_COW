@@ -391,3 +391,42 @@ initialization as a hypothesis for the one-token discrepancy, not yet a
 measured cause. [normal-prefill-validation.json](normal-prefill-validation.json)
 records full-vector hashes, work counters, binaries and model fingerprints.
 Raw archive SHA256: `189e983b183b1ed156c87c8f1d9eaa1595a204622d5a4547ba120ad6f52cdc67`.
+
+## Corrected omitted resident-expert work, 2026-10-12
+
+The private branch and fresh drivers had a shared inference defect: neither
+attached `ExpertDispatch.plan` to the verifier. CPU dispatch classified resident
+experts as GPU work and zeroed their CPU rows, while the verifier received an
+empty GPU plan. Earlier exact branch/oracle comparisons therefore validated
+isolation relative to the same defective operator; they do not prove ordinary
+Strata model equivalence and cannot qualify the corrected build. Their raw
+measurements remain historical evidence.
+
+The driver now attaches the actual verifier plan, honors the parsed PCIe mode
+and share, and clears the borrowed plan on return. A real one-token regression
+first failed four comparisons by 1.1226537227630615. The corrected branch and
+fresh drivers matched ordinary Strata exactly for both explicit share settings
+(0 and 0.55): four maximum errors of 0.0. Each private forward reported two
+resident expert entries and 478 CPU expert entries. The mmap configuration
+performed zero PCIe expert groups in both settings, so PCIe execution itself
+is not validated by these runs.
+
+Corrected pinned executables are under `native-dispatch-primary/bin` on llm-49.
+The new execution profile ID is
+`397394a2a9a0103b9db198f3d55aba4689f0a44377d8335942c9c8a42e4ecdd1`.
+The fresh executable contains no BranchSession, BranchPages or branch-driver
+symbols (`nm -C`, executed). The final supporting suite passed eight tests, including one controller-only
+test: 34 exact full-logit comparisons, of which 30 use fresh full-history
+forwards (296 oracle tokens) and four compare private drivers to ordinary
+one-token execution. Linux G0 passed 51/51 and all four reference mutants were
+detected. Green suites had no failures or skips. A prior regression invocation
+failed on two missing measurement-path environment settings; it is retained
+alongside the successful rerun. RAM hits required zero prefix work; changed
+prefix and complete-eviction misses each replayed nine tokens.
+
+[dispatch-correction-validation.json](dispatch-correction-validation.json)
+records executed IDs, final run selection, corrected build/model fingerprints
+and measurements. Raw archive SHA256:
+`fbbb697bfae7e95d28dd4b8ee2ae05a65a73fbc7d3eb235bcd12f79fe0f140d4`.
+Normal batched-prefill equivalence and numerical admission remain unresolved.
+HIP/SYCL builds were not executed; no G1-G5 gate PASS is claimed.

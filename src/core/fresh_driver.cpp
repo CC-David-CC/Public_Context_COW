@@ -1,4 +1,5 @@
 #include "strata/core/fresh_driver.hpp"
+#include "strata/core/expert_source.hpp"
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -7,7 +8,7 @@
 namespace strata::core {
 int fresh_driver(const WeightTable& weights, const ModelGeometry& geometry, SessionState& state,
                  const VerifyHits& hits, const NativeHead* head, PoolMultiFn pool, void* user,
-                 bool& pool_failed, const std::vector<int64_t>& tokens, const std::string& logits_path) {
+                 ExpertDispatch& dispatch, int pcie_mode, const std::vector<int64_t>& tokens, const std::string& logits_path) {
     std::string error;
     auto fail = [&](const char* message) {
         std::fprintf(stderr, "strata fresh: %s: %s\n", message, error.c_str());
@@ -17,6 +18,15 @@ int fresh_driver(const WeightTable& weights, const ModelGeometry& geometry, Sess
         return fail("missing full history/output path or exceeded context");
     Verifier forward;
     if (!forward.init(weights, geometry, state, hits, head, 2, error)) return fail("initialize");
+    // The verifier consumes the GPU plan produced by this exact dispatch.
+    // Without this binding, resident experts are omitted from both CPU and GPU work.
+    forward.set_pcie_mode(pcie_mode);
+    dispatch.plan = forward.plan_sink();
+    struct PlanReset {
+        ExpertDispatch& dispatch;
+        ~PlanReset() { dispatch.plan = nullptr; }
+    } plan_reset{dispatch};
+    bool& pool_failed = dispatch.failed;
     forward.set_head_sampling(false);
     for (auto token : tokens)
         if (token < 0 || token >= forward.vocab()) return fail("invalid token ID");
@@ -41,6 +51,9 @@ int fresh_driver(const WeightTable& weights, const ModelGeometry& geometry, Sess
               << ",\"position_max\":" << consumed-1
               << ",\"forward_tokens\":" << forward.completed_forward_tokens
               << ",\"windows\":" << forward.windows
+              << ",\"resident_expert_entries\":" << dispatch.cache_hits
+              << ",\"cpu_expert_entries\":" << dispatch.cache_refused
+              << ",\"pcie_expert_groups\":" << dispatch.pcie_experts
               << ",\"logits_bytes\":" << logits.size()*sizeof(float) << "}" << std::endl;
     return 0;
 }

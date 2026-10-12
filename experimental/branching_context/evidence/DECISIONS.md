@@ -340,3 +340,17 @@
   verifier initialization and expert placement.
 - Keep the separate pinned token-level oracle and existing tolerances unchanged.
   Do not reinterpret unchanged top-1 predictions as matching logits.
+
+## 2026-10-12: repair the shared inference defect before admission
+
+- Treat independent process/state isolation as necessary but insufficient for
+  an oracle. Compare against ordinary model execution to catch shared driver
+  mistakes. The one-token control exposed omitted resident experts even though
+  the branch and fresh drivers had agreed exactly with each other.
+- Bind the real ExpertDispatch to its verifier GPU plan and report actual
+  resident/CPU/PCIe work. Preserve the old binaries and evidence; use a new
+  execution identity for the correction. No tolerance or reference equation
+  changed. No ordinary serving default changed.
+- Pin the existing PCIe-share option explicitly in the corrected profile, since
+  an automatic placement choice should not silently change the numerical
+  operator. The measured mmap fixture used no PCIe groups; do not claim it did.

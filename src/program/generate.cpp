@@ -6876,13 +6876,15 @@ int main(int argc, char** argv) {
         hits.h_res = host_res.empty() ? nullptr : host_res.data();
         hits.cache_base = thits.cache_base; hits.blob = thits.blob;
         hits.slot_off = xcache.slot_offsets(); hits.n_slots = xcache.slots();
+        drive.d.pcie_num = std::max(0, std::min(256, (int) (o.pcie_frac * 256.0 + 0.5)));
+        const int pcie_mode = o.pcie_mode == "dma" ? 0 : o.pcie_mode == "direct" ? 1 : 2;
 #ifdef STRATA_BRANCH_DRIVER
         return strata::core::branch_driver(wt, g, ss, hits, native_head.loaded() ? &native_head : nullptr,
-                                           &drive_pool_multi, &drive, drive.d.failed);
+                                           &drive_pool_multi, &drive, drive.d, pcie_mode);
 #else
         const char* output = std::getenv("STRATA_DUMP_FIRST_LOGITS");
         return strata::core::fresh_driver(wt, g, ss, hits, native_head.loaded() ? &native_head : nullptr,
-                                          &drive_pool_multi, &drive, drive.d.failed, o.tokens, output ? output : "");
+                                          &drive_pool_multi, &drive, drive.d, pcie_mode, o.tokens, output ? output : "");
 #endif
     }
 #endif

@@ -2542,6 +2542,209 @@
       "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
     },
     {
+      "id": "N02-DISPATCH",
+      "title": "Bind actual GPU expert dispatch in private drivers",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "N01"
+      ],
+      "files": [
+        "src/program/generate.cpp",
+        "src/core/branch_driver.cpp",
+        "src/core/fresh_driver.cpp",
+        "include/strata/core/branch_driver.hpp",
+        "include/strata/core/fresh_driver.hpp",
+        "experimental/branching_context/tests/implementation/test_n02_dispatch.py"
+      ],
+      "invariant": "For a single consumed token and explicit identical expert placement, normal, fresh and branch drivers execute all resident experts and match full logits exactly. Preserve separate uncached oracle.",
+      "registered_cases": [],
+      "registered_assertions": [],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_dispatch.py"
+          },
+          "expected_ids": [
+            "test_normal_and_private_drivers_include_resident_experts"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_NORMAL_EXECUTABLE": "{normal}",
+            "CTT_ORACLE_EXECUTABLE": "{oracle}",
+            "CTT_SUT_EXECUTABLE": "{sut}"
+          },
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "normal",
+            "model_manifest"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_dispatch.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "normal",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_NORMAL_EXECUTABLE": "{normal}",
+            "CTT_ORACLE_EXECUTABLE": "{oracle}",
+            "CTT_SUT_EXECUTABLE": "{sut}"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_normal_and_private_drivers_include_resident_experts"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "controllers",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c02_idle.py"
+          },
+          "requires_artifacts": [
+            "corrected_profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{corrected_profile}",
+            "CTT_SHARING_MEASUREMENTS": "{run_dir}/measurements.jsonl",
+            "CTT_NATIVE_TRACE": "{run_dir}/native.jsonl",
+            "CTT_ORACLE_TRACE": "{run_dir}/oracle.jsonl"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "ram_replay",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_auto.py"
+          },
+          "requires_artifacts": [
+            "corrected_profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{corrected_profile}",
+            "CTT_SHARING_MEASUREMENTS": "{run_dir}/measurements.jsonl",
+            "CTT_NATIVE_TRACE": "{run_dir}/native.jsonl",
+            "CTT_ORACLE_TRACE": "{run_dir}/oracle.jsonl"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "slots",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_s01*.py"
+          },
+          "requires_artifacts": [
+            "corrected_profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{corrected_profile}",
+            "CTT_SHARING_MEASUREMENTS": "{run_dir}/measurements.jsonl",
+            "CTT_NATIVE_TRACE": "{run_dir}/native.jsonl",
+            "CTT_ORACLE_TRACE": "{run_dir}/oracle.jsonl"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "recovery",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_s02.py"
+          },
+          "requires_artifacts": [
+            "corrected_profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{corrected_profile}",
+            "CTT_SHARING_MEASUREMENTS": "{run_dir}/measurements.jsonl",
+            "CTT_NATIVE_TRACE": "{run_dir}/native.jsonl",
+            "CTT_ORACLE_TRACE": "{run_dir}/oracle.jsonl"
+          },
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Execute the real one-token normal/private-driver counterexample before changing dispatch initialization; preserve assertions.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "N02",
       "title": "Correct or explicitly block batched-prefill semantics",
       "kind": "implementation",

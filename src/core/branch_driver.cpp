@@ -1,4 +1,5 @@
 #include "strata/core/branch_driver.hpp"
+#include "strata/core/expert_source.hpp"
 #include "strata/core/branch_session.hpp"
 #include "strata/core/branch_handles.hpp"
 #include "strata/core/conversation_cache.hpp"
@@ -24,7 +25,7 @@ void error_reply(const std::string& message) {
 }
 int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, SessionState& state,
                   const VerifyHits& hits, const NativeHead* head, PoolMultiFn pool, void* user,
-                  bool& pool_failed) {
+                  ExpertDispatch& dispatch, int pcie_mode) {
     std::string error;
     // Images never leave this process; model identity is fixed by its loaded
     // weights. The API validates the external model/build contract before launch.
@@ -34,6 +35,15 @@ int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, Ses
     // Strata requires capacity for at least two rows even when run() consumes
     // just one. The actual forced forward below always passes T=1.
     if (!forward.init(weights, geometry, state, hits, head, 2, error)) { error_reply(error); return 1; }
+    // The verifier consumes the GPU plan produced by this exact dispatch.
+    // Without this binding, resident experts are omitted from both CPU and GPU work.
+    forward.set_pcie_mode(pcie_mode);
+    dispatch.plan = forward.plan_sink();
+    struct PlanReset {
+        ExpertDispatch& dispatch;
+        ~PlanReset() { dispatch.plan = nullptr; }
+    } plan_reset{dispatch};
+    bool& pool_failed = dispatch.failed;
     forward.set_head_sampling(false); // forced inputs; the API owns RNG/grammar
     BranchHandleCounters handle_work;
     BranchHandles<BranchSessionImage> images(handle_work);
@@ -234,6 +244,9 @@ int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, Ses
             std::cout << "{\"status\":\"ok\",\"consumed\":" << session.ids().size()
                       << ",\"forward_tokens\":" << forward.completed_forward_tokens
                       << ",\"windows\":" << forward.windows
+              << ",\"resident_expert_entries\":" << dispatch.cache_hits
+              << ",\"cpu_expert_entries\":" << dispatch.cache_refused
+              << ",\"pcie_expert_groups\":" << dispatch.pcie_experts
                       << ",\"allocations\":" << p.allocations << ",\"releases\":" << p.releases
                       << ",\"live_bytes\":" << p.live_bytes << ",\"cow_pages\":" << p.cow_pages
                       << ",\"copied_bytes\":" << p.copied_bytes << ",\"mappings\":" << p.mappings
