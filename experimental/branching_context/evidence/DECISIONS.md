@@ -411,3 +411,13 @@
   convolution: prefill native_proj consumes FP16 activations; the verifier uses
   its native quantized projection path. This is a localization hypothesis,
   not yet an isolated causal measurement or justification to loosen tolerances.
+
+## Projection diagnosis, 2026-10-12
+
+Keep projection capture in the separate CUDA diagnostic target. The production
+executable hash is unchanged. Preserve the observed pre-projection discrepancy
+as an unresolved arithmetic-path issue; do not alter tolerances or attribute it
+to convolution storage. Ordinary token-step control now exists and agrees on
+the tested fixtures; the former missing-control blocker is resolved, while
+normal batched-prefill equivalence remains unresolved. See
+[projection-comparison-validation.json](projection-comparison-validation.json).

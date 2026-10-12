@@ -527,3 +527,21 @@ seconds. No acceptance gate, memory-efficiency or prefill-equivalence PASS is
 claimed. The dump is deliberately limited to a one-token boundary and resident
 FP16 KV; other layouts are rejected. The first responsible arithmetic operation
 still needs isolation. See [state-comparison-validation.json](state-comparison-validation.json).
+
+## First projection measured, 2026-10-12
+
+N02-PROJECTION passed its unchanged diagnostic test after a missing-capture
+assertion failed. The first-layer mixed input already differs by
+0.0020284652709960938 (2531 values); QKV output differs by
+0.028350234031677246 (10240 values). The latter equals the first convolution
+history maximum difference. Divergence therefore precedes the QKV projection;
+these measurements do not establish a convolution-storage defect or isolate
+the responsible mixer operation.
+
+All 340 previously captured state and final-logit files remained byte-identical.
+The rebuilt ordinary executable also remained byte-identical. The diagnostic
+passed in 13.336 seconds; G0 passed 51/51 and four reference mutants were
+detected. No gate admission or batched-prefill equivalence is claimed.
+See [projection-comparison-validation.json](projection-comparison-validation.json)
+for executed run IDs, payload sizes, hashes and limitations. The raw archive
+was transferred and its SHA-256 verified locally.

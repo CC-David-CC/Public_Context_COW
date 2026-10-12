@@ -1,5 +1,8 @@
 // src/core/verify.cpp - see include/strata/core/verify.hpp.
 #include "strata/core/batch_rows.hpp"
+#ifdef STRATA_STEP_DRIVER
+#include "strata/core/step_projection.hpp"
+#endif
 #include "strata/kernels/gfx_arch.hpp"
 #include "strata/core/verify.hpp"
 #include "strata/core/remote_expert_opt.hpp"
@@ -1125,6 +1128,12 @@ bool Verifier::record_window(int T, cudaStream_t cs, std::string& err) {
                 }
                 const bool fuse_ab = fuse_convab_on() && !br && !batch_rec_ && !prof_on_;
                 mm(wqkv, qkv + (size_t) tb * C, (int) N, (int) C);
+#ifdef STRATA_STEP_DRIVER
+                if (l == 0 && grp == 0 && step_projection &&
+                    !step_projection->capture(xm, qkv + (size_t) tb * C, cs)) {
+                    err = "step projection: verifier copy failed"; return false;
+                }
+#endif
                 stamp(l, 2, grp);
                 if (batch_rec_) {   // contiguous rows may be proposals for the same slot
                     for (int t = tb; t < te;) {

@@ -12449,6 +12449,12 @@ int main(int argc, char** argv) {
 
     // ---- plan v0.3 P5: the prompt's conditioning positions [0, n_prompt - 1) in batched chunks.  The token loop
     // then starts at the last prompt position, whose prediction is the first generated token.
+#ifdef STRATA_STEP_DRIVER
+    strata::core::StepProjection projection_probe;
+    if (std::getenv("STRATA_STEP_STATE") && !projection_probe.init((size_t) g.n_embd, (size_t) g.ssm_conv_channels)) {
+        std::fprintf(stderr, "strata step: projection diagnostic allocation failed\n"); return 1;
+    }
+#endif
     int64_t pos_start = 0;
     int64_t spec_pos = 0;   // plan v0.3 P6: where the speculative loop starts (0 = not used)
     strata::prefill::Prefill prefill;

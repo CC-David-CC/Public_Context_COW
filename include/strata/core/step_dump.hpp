@@ -1,6 +1,7 @@
 #pragma once
 // Diagnostic-only readback. No restore path or canonical state representation.
 #include "strata/core/conversation_snapshot.hpp"
+#include "strata/core/step_projection.hpp"
 #include <fstream>
 #include <vector>
 
@@ -60,6 +61,9 @@ inline bool dump_first_consumed_state(const char* prefix, const SessionState& ss
             !save(name + ".pooled", q.idx_pooled, (size_t) g.idx_key_dim * 4, "f32") ||
             !save(name + ".block_pos", q.idx_block_pos, sizeof(int32_t), "i32")) return false;
     }
+    if (step_projection &&
+        (!save("projection.mixed", step_projection->mixed, step_projection->input_count * 4, "f32") ||
+         !save("projection.qkv", step_projection->qkv, step_projection->output_count * 4, "f32"))) return false;
     manifest << "]}"; manifest.close();
     if (!manifest) { error = "step state: manifest write failed"; return false; }
     return true;

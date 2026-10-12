@@ -3094,6 +3094,109 @@
       "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
     },
     {
+      "id": "N02-PROJECTION",
+      "title": "Observe the first recurrent projection input and output",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "N02-STATE"
+      ],
+      "files": [
+        "src/core/verify.cpp",
+        "src/prefill/prefill.cpp",
+        "include/strata/core/step_dump.hpp",
+        "src/program/generate.cpp",
+        "CMakeLists.txt",
+        "experimental/branching_context/tests/implementation/test_n02_projection.py"
+      ],
+      "invariant": "Capture only populated FP16 KV rows and real recurrent/convolution/PLE/indexer state after token 100; report differences, do not accept them as equivalence.",
+      "registered_cases": [],
+      "registered_assertions": [],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_projection.py"
+          },
+          "expected_ids": [
+            "test_n02_projection_is_observed"
+          ],
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "step"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_STEP_EXECUTABLE": "{step}"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_projection.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "step"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_STEP_EXECUTABLE": "{step}"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_n02_projection_is_observed"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Write a deterministic adversarial test named test_n02_invariant. It must fail by AssertionError on the current implementation; missing imports do not qualify. Preserve this test through green.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "N02",
       "title": "Correct or explicitly block batched-prefill semantics",
       "kind": "implementation",

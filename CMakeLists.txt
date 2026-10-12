@@ -657,7 +657,7 @@ if(STRATA_ENABLE_CUDA OR STRATA_ENABLE_HIP)
     target_include_directories(strata-branch PRIVATE ${_strata_gpu_include_directories})
     target_link_libraries(strata-branch PRIVATE strata_engine strata_prefill strata_spec ${_strata_gpu_runtime_target})
     # Bounded diagnostic: ordinary initialization with forced token-by-token input.
-    add_executable(strata-step EXCLUDE_FROM_ALL src/program/generate.cpp)
+    add_executable(strata-step EXCLUDE_FROM_ALL src/program/generate.cpp src/core/verify.cpp src/prefill/prefill.cpp)
     target_compile_definitions(strata-step PRIVATE STRATA_STEP_DRIVER=1)
     target_include_directories(strata-step PRIVATE ${_strata_gpu_include_directories})
     target_link_libraries(strata-step PRIVATE strata_engine strata_prefill strata_spec ${_strata_gpu_runtime_target})
