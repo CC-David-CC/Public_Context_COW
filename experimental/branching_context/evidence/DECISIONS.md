@@ -428,3 +428,13 @@ Remove the obsolete hardcoded oracle pathname and default source revision. Use
 the oracle executable from the measured admission receipt, reject a changed binary
 hash, and require explicit source provenance. Keep the calibration matrix and
 tolerance rule unchanged; token-level repeatability does not admit batched prefill.
+
+## Private publication only, 2026-10-12
+
+The user suspended GitHub/Strata publication pending their discussion with Niko.
+Work is now on private/branching-context-prototype, tracking the existing
+box-git:/srv/data/git/strata-private.git remote. The WIP calibration commit
+3cd3479e8de97e36d168f7210ba17b83e9d3d334 was pushed there and the remote SHA
+verified. Do not push further work to GitHub or update the existing draft PR
+until the user explicitly authorizes publication again. Calibration and the
+remaining implementation queue continue privately.
