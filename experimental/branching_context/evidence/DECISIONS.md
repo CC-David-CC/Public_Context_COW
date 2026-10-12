@@ -471,3 +471,7 @@ Per explicit user authorization for the test box, applied runtime sysctl kernel.
 ## 2026-10-12 local principal boundary
 
 The trusted local owner authenticates a principal and binds a restricted Store/model handle with for_principal. Grants are separate mutable authorization metadata keyed by canonical root ID, not per-user history copies. Bound handles cannot impersonate another principal or administer grants. This is API authorization, not isolation against arbitrary Python executing as the filesystem owner; P02 addresses separate OS users. Revocation is checked at operation entry; an already admitted operation is not retroactively canceled. Evaluation access metadata contains only a snapshot ID so denied reads need not deserialize the report payload.
+
+## 2026-10-12 at-rest policy
+
+Use explicit POSIX 0700 directories and 0600 publication/staging files, independent of caller umask. Reject symlink directories and directories owned by another OS principal. Store policy states owner-only plaintext; no encrypted-storage claim or unverified key handling. Existing legacy payloads are protected by owner-only root traversal; their modes are not silently recursively rewritten. Registered sensitive-storage acceptance must exercise actual native checkpoint files under a separate OS principal.

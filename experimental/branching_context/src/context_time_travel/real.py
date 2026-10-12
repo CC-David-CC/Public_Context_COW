@@ -11,7 +11,7 @@ import copy
 from types import MappingProxyType
 
 from .oracle import FreshOracle
-from .store import Store, IntegrityError, InvalidOperation, _stage, _sync_dir, _json_bytes, _decode
+from .store import Store, IntegrityError, InvalidOperation, _stage, _sync_dir, _json_bytes, _decode, _private_directory
 from . import controller
 
 
@@ -220,7 +220,7 @@ class BranchingModel:
         self.profile = profile
         self.cache = backend.new_cache()
         self.checkpoint_directory = self.store.root/'checkpoints'
-        self.checkpoint_directory.mkdir(exist_ok=True)
+        _private_directory(self.checkpoint_directory)
         self._checkpoint_fault = lambda point: None
         self._lease_fault = lambda point: None
         self._allocation_fault = lambda point, lease: None

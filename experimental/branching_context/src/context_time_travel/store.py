@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from contextlib import contextmanager
 from collections.abc import Mapping
+from types import MappingProxyType
 import copy
 import fcntl
 import hashlib
@@ -146,6 +147,13 @@ def _stage(directory: Path, data: bytes) -> Path:
     return Path(name)
 
 
+def _private_directory(path: Path, *, parents=False) -> None:
+    path.mkdir(mode=0o700, parents=parents, exist_ok=True)
+    if path.is_symlink() or path.stat().st_uid != os.geteuid():
+        raise PermissionError('Private directory must be owned by the current OS principal')
+    path.chmod(0o700)
+
+
 class Store:
     """Authoritative snapshots + transactional named branch heads.
 
@@ -153,6 +161,9 @@ class Store:
     must treat a transaction that faults after rename as having *uncertain*
     outcome, then retry the same operation ID and inspect the receipt.
     """
+
+    persistence_policy = MappingProxyType(dict(kind='owner-only-plaintext',encrypted=False,
+                                               directories=0o700,files=0o600))
 
     def __init__(self, directory: str | os.PathLike[str],
                  fault_hook: Optional[Callable[[str], None]] = None):
@@ -171,14 +182,15 @@ class Store:
         self.lock_path = self.root / "refs.lock"
         self.order_path = self.root / "ref-order.json"
         self.fault_hook = fault_hook
-        self.root.mkdir(parents=True, exist_ok=True)
-        self.objects.mkdir(exist_ok=True)
-        self.root_index.mkdir(exist_ok=True)
-        self.lock_path.touch(exist_ok=True)
+        _private_directory(self.root, parents=True)
+        _private_directory(self.objects)
+        _private_directory(self.root_index)
+        self.lock_path.touch(mode=0o600, exist_ok=True)
+        self.lock_path.chmod(0o600)
         with self._locked():
             if not self.refs_path.exists():
                 self.references = self.root / 'references'
-                self.references.mkdir(exist_ok=True)
+                _private_directory(self.references)
                 _sync_dir(self.root)
                 self._write_order(0)
                 self._publish_format(self.references.name)
@@ -217,7 +229,7 @@ class Store:
             raise InvalidOperation('Grants must identify a history root')
         with self._locked():
             directory = self.root/'grants'
-            directory.mkdir(exist_ok=True)
+            _private_directory(directory)
             path = directory/(root+'.json')
             value = _decode(path.read_bytes()) if path.exists() else {}
             value[principal] = sorted(rights)
@@ -242,7 +254,7 @@ class Store:
 
     def _index_evaluation_access(self, identity, snapshot):
         directory = self.root/'evaluation-access'
-        directory.mkdir(exist_ok=True)
+        _private_directory(directory)
         path = directory/(identity+'.json')
         raw = _json_bytes({'snapshot':snapshot})
         stage = _stage(directory,raw)
@@ -391,7 +403,7 @@ class Store:
         # changes layout. Until the final marker rename, the old index is the
         # authority; a restart can repeat the same deterministic migration.
         directory = self.root / ('references-' + _hash(_json_bytes(old)))
-        directory.mkdir(exist_ok=True)
+        _private_directory(directory)
         records = {}
         for name, head in old['branches'].items():
             _name(name)
@@ -548,7 +560,7 @@ class Store:
         raw = _json_bytes(value)
         identity = _hash(raw)
         directory = self.root / 'evaluations'
-        directory.mkdir(exist_ok=True)
+        _private_directory(directory)
         _sync_dir(self.root)
         destination = directory / (identity + '.json')
         if destination.exists():
