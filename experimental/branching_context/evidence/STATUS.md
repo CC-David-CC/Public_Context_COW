@@ -630,3 +630,7 @@ Executed test_p01_invariant on llm-49: expected AssertionError because Store.for
 ## 2026-10-12 llm-60 evaluator prerequisite resolved
 
 User explicitly authorized global protection changes on this test box. Changed only runtime kernel.apparmor_restrict_unprivileged_userns from 1 to 0; AppArmor remained enabled (Y), no reboot or calibration restart. Both unchanged E02 CPU methods passed (2 tests, zero failures/skips), including host filesystem/network isolation and immutable report composition. llm-60 is available again for evaluator-dependent G4 after its frozen baseline; earlier BLOCKED host status is superseded, original failure retained. This is a host prerequisite PASS, not G4 acceptance. Evidence: `llm60-evaluator-host-fix.json`.
+
+## 2026-10-12 P01 principal-bound store prework
+
+Unchanged P01 CPU red now passes: same underlying immutable store, durable root grants, restricted identity binding, denied reads before snapshot payload access, fork/move/append/evaluation checks and revoke-after-reopen. Added model access checks before cache restore/forward/checkpoint access. G0 51/51; mutants 4/4; both evaluator CPU regression methods passed. Added registered G5-006 testing hot-cache denial and direct work counters; unexecuted pending frozen profile. History deletion authorization remains pending its GC API. Evidence: `authorization-prework.json`.

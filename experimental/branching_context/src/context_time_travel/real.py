@@ -235,7 +235,13 @@ class BranchingModel:
     def history(self, snapshot):
         return tuple(self.store.lineage(snapshot)[1])
 
+    def for_principal(self, principal):
+        bound = copy.copy(self)
+        bound.store = self.store.for_principal(principal)
+        return bound
+
     def snapshot_bytes(self, snapshot):
+        self.store.authorize(snapshot, 'read')
         return (self.store.objects/(snapshot+'.json')).read_bytes()
 
     def _save(self, lease, history):
@@ -249,6 +255,7 @@ class BranchingModel:
 
     @contextmanager
     def materialize(self, snapshot):
+        self.store.authorize(snapshot, 'materialize')
         record = self.store.get_snapshot(snapshot)
         if record['model_contract_id'] != self.profile['model_contract_id']:
             raise IntegrityError('Snapshot model contract mismatch')
@@ -286,6 +293,8 @@ class BranchingModel:
             yield lease,saved.frontier
 
     def create(self, ids, *, contract=None):
+        if self.store._principal is not None:
+            raise PermissionError('Only the local owner can create model histories')
         if contract is not None and dict(contract) != dict(self.contract):
             raise IntegrityError('Unsupported or incompatible model/input semantics')
         ids = tuple(ids)
@@ -300,6 +309,7 @@ class BranchingModel:
         return self._feed(snapshot,ids,self.controller(snapshot))
 
     def _feed(self, snapshot, ids, decoder):
+        self.store.authorize(snapshot, 'append')
         if not ids:
             return snapshot
         history = self.history(snapshot) + tuple(ids)
@@ -383,6 +393,7 @@ class BranchingModel:
             stage.unlink(missing_ok=True)
 
     def checkpoint(self, snapshot):
+        self.store.authorize(snapshot, 'checkpoint')
         with self.materialize(snapshot) as (lease,_):
             saved = self.cache[snapshot]
             blob = self.backend.serialize(lease,saved.blob)
@@ -425,6 +436,8 @@ class BranchingModel:
             raise IntegrityError('Invalid or incomplete checkpoint') from error
 
     def evict_all(self):
+        if self.store._principal is not None:
+            raise PermissionError('Global eviction requires local owner access')
         self.cache.clear()
         self.backend.release_checkpoints()
         for path in self.checkpoint_directory.iterdir():

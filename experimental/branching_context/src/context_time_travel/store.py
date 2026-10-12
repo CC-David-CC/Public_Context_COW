@@ -156,6 +156,7 @@ class Store:
 
     def __init__(self, directory: str | os.PathLike[str],
                  fault_hook: Optional[Callable[[str], None]] = None):
+        self._principal = None  # Trusted local owner; authentication belongs to the caller.
         self._work_lock = threading.Lock()
         self._work = dict(snapshot_read_bytes=0, snapshot_reads=0, snapshot_written_bytes=0,
                          reference_read_bytes=0, reference_reads=0, reference_written_bytes=0,
@@ -187,6 +188,74 @@ class Store:
                     self._migrate_references(marker)
                 else:
                     self._set_reference_directory(marker)
+
+    def for_principal(self, principal: str):
+        """Bind a trusted caller's authenticated identity to this same store.
+
+        This does not sandbox Python code or replace OS filesystem permissions.
+        A restricted handle cannot create another identity or administer grants.
+        """
+        if self._principal is not None:
+            raise PermissionError('Only the local owner can bind principals')
+        _name(principal)
+        bound = copy.copy(self)
+        bound._principal = principal
+        bound._work_lock = threading.Lock()
+        bound._work = dict.fromkeys(self._work, 0)
+        return bound
+
+    def grant(self, root: str, principal: str, rights) -> None:
+        if self._principal is not None:
+            raise PermissionError('Only the local owner can change grants')
+        _id(root)
+        _name(principal)
+        rights = set(rights)
+        allowed = {'read','fork','move','append','evaluate','materialize','checkpoint','delete'}
+        if rights - allowed:
+            raise InvalidOperation('Unknown root permission')
+        if self.get_snapshot(root)['parent'] is not None:
+            raise InvalidOperation('Grants must identify a history root')
+        with self._locked():
+            directory = self.root/'grants'
+            directory.mkdir(exist_ok=True)
+            path = directory/(root+'.json')
+            value = _decode(path.read_bytes()) if path.exists() else {}
+            value[principal] = sorted(rights)
+            stage = _stage(directory,_json_bytes(value))
+            try:
+                os.replace(stage,path)
+                _sync_dir(directory)
+                _sync_dir(self.root)
+            finally:
+                stage.unlink(missing_ok=True)
+
+    def authorize(self, snapshot: str, operation: str = 'read') -> None:
+        if self._principal is None:
+            return
+        try:
+            root = self._read_root_index(_id(snapshot))
+            grants = _decode((self.root/'grants'/(root+'.json')).read_bytes())
+        except FileNotFoundError as error:
+            raise PermissionError('No root grant for principal') from error
+        if operation not in grants.get(self._principal, []):
+            raise PermissionError('Root operation is not granted')
+
+    def _index_evaluation_access(self, identity, snapshot):
+        directory = self.root/'evaluation-access'
+        directory.mkdir(exist_ok=True)
+        path = directory/(identity+'.json')
+        raw = _json_bytes({'snapshot':snapshot})
+        stage = _stage(directory,raw)
+        try:
+            try:
+                os.link(stage,path)
+            except FileExistsError:
+                if path.read_bytes() != raw:
+                    raise IntegrityError('Conflicting evaluation access index')
+            _sync_dir(directory)
+            _sync_dir(self.root)
+        finally:
+            stage.unlink(missing_ok=True)
 
     def _count(self, **values: int) -> None:
         with self._work_lock:
@@ -436,6 +505,7 @@ class Store:
 
     def get_snapshot(self, snapshot_id: str) -> dict:
         identity = _id(snapshot_id)
+        self.authorize(identity)
         record = self._verify_object_file(self.objects / (identity + ".json"), identity)
         if set(record) != {"kind", "schema", "model_contract_id", "parent", "inputs", "controller"}:
             raise IntegrityError("Unrecognized snapshot schema")
@@ -459,6 +529,7 @@ class Store:
         """Publish a report without changing any history, controller or reference."""
         from .evaluation import validate_record
         value = validate_record(record)
+        self.authorize(value['snapshot_id'], 'evaluate')
         cursor = value['snapshot_id']
         seen = set()
         contract = None
@@ -481,6 +552,7 @@ class Store:
         _sync_dir(self.root)
         destination = directory / (identity + '.json')
         if destination.exists():
+            self._index_evaluation_access(identity, value['snapshot_id'])
             self.get_evaluation(identity)
             return identity
         stage = _stage(directory, raw)
@@ -493,6 +565,7 @@ class Store:
                 self.get_evaluation(identity)
             else:
                 _sync_dir(directory)
+            self._index_evaluation_access(identity, value['snapshot_id'])
         finally:
             stage.unlink(missing_ok=True)
         return identity
@@ -501,6 +574,13 @@ class Store:
         """Read a detached, hash-checked report, never a mutable model snapshot."""
         from .evaluation import validate_record
         identity = _id(evaluation_id)
+        if self._principal is not None:
+            try:
+                index = _decode((self.root/'evaluation-access'/(identity+'.json')).read_bytes())
+            except FileNotFoundError as error:
+                raise PermissionError('No evaluation access index') from error
+            self.authorize(index['snapshot'], 'evaluate')
+            self.authorize(index['snapshot'], 'read')
         try:
             raw = (self.root / 'evaluations' / (identity + '.json')).read_bytes()
         except FileNotFoundError as error:
@@ -516,6 +596,8 @@ class Store:
     def create_root(self, model_contract_id: str,
                     inputs: tuple[int, ...] | list[int],
                     controller: Mapping[str, Any]) -> str:
+        if self._principal is not None:
+            raise PermissionError('Only the local owner can create history roots')
         if not isinstance(model_contract_id, str) or not model_contract_id:
             raise InvalidOperation("Model contract identity must be nonempty")
         return self._put_object({"kind": "snapshot", "schema": 1,
@@ -526,6 +608,7 @@ class Store:
 
     def append(self, parent_id: str, inputs: tuple[int, ...] | list[int],
                controller: Mapping[str, Any]) -> str:
+        self.authorize(parent_id, 'append')
         parent = self.get_snapshot(parent_id)
         root = self._root_for(_id(parent_id))
         return self._put_object({"kind": "snapshot", "schema": 1,
@@ -556,6 +639,8 @@ class Store:
             cursor = record["parent"]
 
     def fork(self, name: str, snapshot_id: str) -> BranchHead:
+        self.authorize(snapshot_id, 'fork')
+        self.authorize(snapshot_id, 'read')
         name = _name(name)
         identity = _id(snapshot_id)
         root = self._root_for(identity)
@@ -590,6 +675,9 @@ class Store:
         request_digest = _hash(_json_bytes(request))
         with self._locked():
             refs = self._read_refs()
+            self.authorize(identity, 'move')
+            if name in refs['branches']:
+                self.authorize(refs['branches'][name]['tip'], 'move')
             receipt = refs["receipts"].get(op_id)
             if receipt is not None:
                 if receipt["digest"] != request_digest:
@@ -624,5 +712,7 @@ class Store:
             return result
 
     def events(self) -> list[dict]:
+        if self._principal is not None:
+            raise PermissionError('Global audit requires local owner access')
         with self._locked():
             return copy.deepcopy(self._read_refs()["events"])

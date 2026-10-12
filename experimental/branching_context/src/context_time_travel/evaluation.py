@@ -62,6 +62,7 @@ def choose_validated(store, evaluation_ids, *, mandatory):
 
 def evaluate(store, snapshot_id, specification):
     """Score a retained snapshot and publish a separate immutable report."""
+    store.authorize(snapshot_id, 'evaluate')
     _fields(specification, 'task_root evaluator fixtures metric seed mandatory timeout_seconds',
             'execution specification')
     evaluator = specification['evaluator']

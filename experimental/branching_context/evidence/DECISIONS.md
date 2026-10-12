@@ -467,3 +467,7 @@ Preserve the failed llm-60 E02 test and AppArmor denial logs. Do not weaken eval
 ## 2026-10-12 authorized llm-60 namespace policy adjustment
 
 Per explicit user authorization for the test box, applied runtime sysctl kernel.apparmor_restrict_unprivileged_userns=0. No persistent config or other global protection was changed. AppArmor remains enabled and the unchanged evaluator sandbox tests passed. Reverse with sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1. Prefer llm-60 for G4 again after baseline qualification.
+
+## 2026-10-12 local principal boundary
+
+The trusted local owner authenticates a principal and binds a restricted Store/model handle with for_principal. Grants are separate mutable authorization metadata keyed by canonical root ID, not per-user history copies. Bound handles cannot impersonate another principal or administer grants. This is API authorization, not isolation against arbitrary Python executing as the filesystem owner; P02 addresses separate OS users. Revocation is checked at operation entry; an already admitted operation is not retroactively canceled. Evaluation access metadata contains only a snapshot ID so denied reads need not deserialize the report payload.
