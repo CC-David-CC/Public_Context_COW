@@ -642,3 +642,7 @@ Executed red with umask 0: newly created store directory was 0777 rather than re
 ## 2026-10-12 P03 retention and read leases
 
 Added named historical pins, branch/evaluation reachability and POSIX flock-backed active read leases. Materialization and evaluation hold a lease. A real spawned child proved active pin visibility and automatic release on termination. Initial test cleanup hung in multiprocessing.Event.set after killing the waiter; preserved interrupted traceback, removed that cleanup operation without changing assertions, and reran corrected test red against 214cc3e8 then green. Three P01-P03 tests, two evaluator regressions, G0 51/51 and mutants 4/4 passed. No history deletion/GC yet; GPU lease integration unexecuted. Evidence: `retention-leases-prework.json`.
+
+## 2026-10-12 P04 explicit history collection prework
+
+Executed P04 red then unchanged green. History is retained by default; release_history makes an identity eligible, and owner collection sweeps only released unreachable records in the requested root. Test preserved live-head ancestors, named pins, evaluation candidates and a real child-held lease; collected the released orphan and later the released lease snapshot. Create/append/fork/lineage/evaluation publication now share a reentrant reference transaction lock with collection. G0 51/51; four P01-P04 tests; two evaluator regressions; mutants 4/4 passed. Crash/fork/append schedule tests and GPU cases remain outstanding. Evidence: `history-collection-prework.json`.

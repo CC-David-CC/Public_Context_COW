@@ -479,3 +479,7 @@ Use explicit POSIX 0700 directories and 0600 publication/staging files, independ
 ## 2026-10-12 retention lease lifetime
 
 Use shared OS locks on snapshot-named lease files. The kernel releases an active lease on process death; stale lock files alone do not pin history. Register leases under the reference transaction lock so a future collector can synchronize discovery with entry. Named historical pins and evaluation roots are separate retention metadata over the canonical snapshots. This does not yet authorize or implement physical history deletion.
+
+## 2026-10-12 explicit collection eligibility
+
+Default history retention is preserved: unreferenced does not imply permission to delete. release_history explicitly marks a snapshot eligible; collect_history is a separate owner administration operation. Mark branch roots/heads, retry-receipt targets, named pins, evaluation candidates/task roots, active leases and every unreleased object, then their ancestors. Delete eligible unreachable descendants before ancestors. Serialize history publication and reference moves with the same transaction lock. Numerical cache eviction never invokes history release or collection.

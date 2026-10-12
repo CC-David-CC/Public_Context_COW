@@ -17,6 +17,7 @@ from typing import Any, Callable, Optional
 from contextlib import contextmanager
 from collections.abc import Mapping
 from types import MappingProxyType
+from functools import wraps
 import copy
 import fcntl
 import hashlib
@@ -154,6 +155,14 @@ def _private_directory(path: Path, *, parents=False) -> None:
     path.chmod(0o700)
 
 
+def _history_transaction(method):
+    @wraps(method)
+    def run(self, *args, **kwargs):
+        with self._locked():
+            return method(self, *args, **kwargs)
+    return run
+
+
 class Store:
     """Authoritative snapshots + transactional named branch heads.
 
@@ -168,6 +177,8 @@ class Store:
     def __init__(self, directory: str | os.PathLike[str],
                  fault_hook: Optional[Callable[[str], None]] = None):
         self._principal = None  # Trusted local owner; authentication belongs to the caller.
+        self._transaction_lock = threading.RLock()
+        self._transaction_state = threading.local()
         self._work_lock = threading.Lock()
         self._work = dict(snapshot_read_bytes=0, snapshot_reads=0, snapshot_written_bytes=0,
                          reference_read_bytes=0, reference_reads=0, reference_written_bytes=0,
@@ -345,6 +356,69 @@ class Store:
         with self._locked():
             return self._retained_snapshots_locked()
 
+    def release_history(self, snapshot):
+        """Explicitly make an identity eligible for authorized collection."""
+        self.authorize(snapshot,'delete')
+        with self._locked():
+            self.get_snapshot(snapshot)
+            directory=self.root/'released-history'
+            _private_directory(directory)
+            stage=_stage(directory,_json_bytes({'snapshot':snapshot}))
+            try:
+                os.replace(stage,directory/(_id(snapshot)+'.json'))
+                _sync_dir(directory)
+                _sync_dir(self.root)
+            finally:
+                stage.unlink(missing_ok=True)
+
+    def collect_history(self, root):
+        """Sweep explicitly released, unreachable objects under one history root.
+
+        Collection is an owner administration operation. Ordinary cache eviction
+        never calls this. Delete descendants first so interruption cannot leave
+        a surviving object with a missing parent.
+        """
+        if self._principal is not None:
+            raise PermissionError('History collection requires the local owner')
+        with self._locked():
+            if self.get_snapshot(root)['parent'] is not None:
+                raise InvalidOperation('Collection scope must be a history root')
+            records={p.stem:self.get_snapshot(p.stem) for p in self.objects.glob('*.json')}
+            scope={sid for sid in records if self.lineage(sid)[0] == root}
+            released={p.stem for p in (self.root/'released-history').glob('*.json')
+                      if _decode(p.read_bytes()) == {'snapshot':p.stem}}
+            marked=self._retained_snapshots_locked() | (set(records)-released) | {root}
+            # Retry receipts are durable references, even after a branch rewind.
+            for receipt in self._read_refs()['receipts'].values():
+                marked.add(receipt['result']['tip'])
+            pending=list(marked)
+            while pending:
+                sid=pending.pop()
+                parent=records[sid]['parent']
+                if parent is not None and parent not in marked:
+                    marked.add(parent)
+                    pending.append(parent)
+            def depth(sid):
+                count=0
+                while sid is not None:
+                    count+=1
+                    sid=records[sid]['parent']
+                return count
+            removable=scope-marked
+            deleted=[]
+            for sid in sorted(removable,key=lambda sid:(-depth(sid),sid)):
+                self._fault('before_history_unlink')
+                (self.objects/(sid+'.json')).unlink()
+                _sync_dir(self.objects)
+                self._fault('after_history_unlink')
+                (self.root_index/(sid+'.json')).unlink(missing_ok=True)
+                (self.root/'released-history'/(sid+'.json')).unlink(missing_ok=True)
+                deleted.append(sid)
+            _sync_dir(self.root_index)
+            if (self.root/'released-history').exists():
+                _sync_dir(self.root/'released-history')
+            return {'deleted':sorted(deleted),'retained':sorted(scope & marked)}
+
     def work_counters(self) -> dict[str, int]:
         """Completed application-byte I/O and actual traversals, not disk traffic.
 
@@ -366,12 +440,18 @@ class Store:
 
     @contextmanager
     def _locked(self):
-        with open(self.lock_path, "r+b") as fh:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-            try:
+        with self._transaction_lock:
+            if getattr(self._transaction_state,'active',False):
                 yield
-            finally:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                return
+            with open(self.lock_path, "r+b") as fh:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+                self._transaction_state.active=True
+                try:
+                    yield
+                finally:
+                    self._transaction_state.active=False
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
     def _read_reference_json(self, path: Path) -> dict:
         try:
@@ -608,6 +688,7 @@ class Store:
             raise IntegrityError("Invalid stored snapshot fields") from exc
         return record
 
+    @_history_transaction
     def put_evaluation(self, record: dict) -> str:
         """Publish a report without changing any history, controller or reference."""
         from .evaluation import validate_record
@@ -676,6 +757,7 @@ class Store:
         except InvalidOperation as error:
             raise IntegrityError('Invalid stored evaluation') from error
 
+    @_history_transaction
     def create_root(self, model_contract_id: str,
                     inputs: tuple[int, ...] | list[int],
                     controller: Mapping[str, Any]) -> str:
@@ -689,6 +771,7 @@ class Store:
                                  "inputs": _tokens(inputs),
                                  "controller": _controller(controller)})
 
+    @_history_transaction
     def append(self, parent_id: str, inputs: tuple[int, ...] | list[int],
                controller: Mapping[str, Any]) -> str:
         self.authorize(parent_id, 'append')
@@ -700,6 +783,7 @@ class Store:
                                  "inputs": _tokens(inputs),
                                  "controller": _controller(controller)}, root)
 
+    @_history_transaction
     def lineage(self, snapshot_id: str) -> tuple[str, list[int]]:
         """Return (root_id, exact inputs); validate every ancestor and contract."""
         cursor = _id(snapshot_id)
@@ -721,6 +805,7 @@ class Store:
                 return cursor, [token for chunk in reversed(chunks) for token in chunk]
             cursor = record["parent"]
 
+    @_history_transaction
     def fork(self, name: str, snapshot_id: str) -> BranchHead:
         self.authorize(snapshot_id, 'fork')
         self.authorize(snapshot_id, 'read')
