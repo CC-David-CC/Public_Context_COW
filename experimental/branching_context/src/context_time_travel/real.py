@@ -81,6 +81,16 @@ class NativeBackend:
     def new_cache(self):
         return {}
 
+    def park(self, lease):
+        # This adapter has no independent native history cache.
+        return None
+
+    def restore_cached(self, lease, history):
+        return False
+
+    def clear_cached_histories(self):
+        return 0
+
     def release_checkpoints(self):
         # Owned byte images are released by dropping their Python references.
         pass
@@ -228,6 +238,7 @@ class BranchingModel:
         self._allocation_fault('before_native_export',lease)
         blob = self.backend.export(lease)
         frontier = self.backend.logits(lease)
+        self.backend.park(lease)
         return Checkpoint(self.profile['model_contract_id'],self.profile['execution_profile_id'],
             self.backend.position(lease)+1,blob,frontier,Checkpoint.digest(blob,frontier),
             self._input_identity(history))
@@ -249,6 +260,7 @@ class BranchingModel:
                 # image for another canonical input history; rebuild from the
                 # immutable snapshot inputs instead.
                 self.cache.pop(snapshot, None)
+                self.backend.clear_cached_histories()
                 saved = None
             if saved:
                 if saved.model_contract_id != self.profile['model_contract_id'] or saved.execution_profile_id != self.profile['execution_profile_id']:
@@ -261,7 +273,8 @@ class BranchingModel:
                         resident,saved.frontier,Checkpoint.digest(resident,saved.frontier),saved.input_identity)
                     self.cache[snapshot] = saved
             else:
-                self.backend.consume(lease,history)
+                if not self.backend.restore_cached(lease,history):
+                    self.backend.consume(lease,history)
                 saved = self._save(lease,history)
                 self.cache[snapshot] = saved
             if self.backend.position(lease) != len(history)-1:

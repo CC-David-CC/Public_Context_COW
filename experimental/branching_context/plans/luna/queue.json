@@ -1698,13 +1698,291 @@
       "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
     },
     {
+      "id": "C01-AUTO",
+      "title": "Route canonical numerical-cache misses through native RAM",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "C01-RAM"
+      ],
+      "files": [
+        "experimental/branching_context/src/context_time_travel/real.py",
+        "experimental/branching_context/tests/implementation/test_c01_auto.py"
+      ],
+      "invariant": "Canonical snapshot materialization uses a checked exact native RAM history on hot-cache miss. Real RAM misses replay canonical inputs; deleting all numerical checkpoints retains history and costs actual full-prefix work. Forced A/B futures match fresh forwards at every consumed boundary.",
+      "registered_cases": [],
+      "registered_assertions": [
+        {
+          "id": "G1-004",
+          "gate": "G1",
+          "test": "test_g1_004_every_accepted_boundary",
+          "assertion": "After each accepted generated/forced token, consumed length, positions and next logits align."
+        },
+        {
+          "id": "G1-014",
+          "gate": "G1",
+          "test": "test_g1_014_pending_sampled_token",
+          "assertion": "Saving immediately after sample cannot produce sampled-but-unconsumed cache frontier."
+        },
+        {
+          "id": "G1-015",
+          "gate": "G1",
+          "test": "test_g1_015_mid_generation_rng_replay",
+          "assertion": "Seven accepted tokens, save, twenty more, restore, repeat: tokens and draws agree."
+        },
+        {
+          "id": "G1-016",
+          "gate": "G1",
+          "test": "test_g1_016_sampler_multiple_draws",
+          "assertion": "Controller stores actual RNG draw cursor if sampler uses variable draws per token."
+        },
+        {
+          "id": "G1-017",
+          "gate": "G1",
+          "test": "test_g1_017_grammar_mid_production",
+          "assertion": "Mid-grammar restoration preserves legal-token state and never bypasses grammar."
+        },
+        {
+          "id": "G1-018",
+          "gate": "G1",
+          "test": "test_g1_018_stop_progress_and_eos",
+          "assertion": "Stop matcher and EOS status survive restore; stopped scope remains stopped."
+        },
+        {
+          "id": "G1-027",
+          "gate": "G1",
+          "test": "test_g1_027_stream_publication_boundary",
+          "assertion": "A resumable streamed token has a durable, fully consumed matching snapshot."
+        }
+      ],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_auto.py"
+          },
+          "expected_ids": [
+            "test_canonical_ram_hit_miss_and_complete_eviction"
+          ],
+          "assertion_text": "Canonical cache miss must restore exact parked history without prefix replay",
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "artifacts": [
+            "{result}",
+            "{run_dir}/measurements.jsonl",
+            "{run_dir}/native.jsonl",
+            "{run_dir}/oracle.jsonl"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}"
+          }
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_auto.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}"
+          },
+          "platform": "posix",
+          "artifacts": [
+            "{result}",
+            "{run_dir}/measurements.jsonl",
+            "{run_dir}/native.jsonl",
+            "{run_dir}/oracle.jsonl"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Run the newly added idle-controller regression against the preserved Luna source; do not change any existing assertion.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
+      "id": "C01-DUPLICATE",
+      "title": "Replace duplicate unpinned consumed cache entry",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "C01-AUTO"
+      ],
+      "files": [
+        "include/strata/core/conversation_cache.hpp",
+        "experimental/branching_context/tests/implementation/test_c01_duplicate.py"
+      ],
+      "invariant": "Repeated parking of an identical consumed history replaces an unpinned checkpoint with no intermediate checkpoint history. Pinned roots and differing image/steering identities remain retained. Actual allocation owners and native regression are measured.",
+      "registered_cases": [],
+      "registered_assertions": [
+        {
+          "id": "G1-004",
+          "gate": "G1",
+          "test": "test_g1_004_every_accepted_boundary",
+          "assertion": "After each accepted generated/forced token, consumed length, positions and next logits align."
+        },
+        {
+          "id": "G1-014",
+          "gate": "G1",
+          "test": "test_g1_014_pending_sampled_token",
+          "assertion": "Saving immediately after sample cannot produce sampled-but-unconsumed cache frontier."
+        },
+        {
+          "id": "G1-015",
+          "gate": "G1",
+          "test": "test_g1_015_mid_generation_rng_replay",
+          "assertion": "Seven accepted tokens, save, twenty more, restore, repeat: tokens and draws agree."
+        },
+        {
+          "id": "G1-016",
+          "gate": "G1",
+          "test": "test_g1_016_sampler_multiple_draws",
+          "assertion": "Controller stores actual RNG draw cursor if sampler uses variable draws per token."
+        },
+        {
+          "id": "G1-017",
+          "gate": "G1",
+          "test": "test_g1_017_grammar_mid_production",
+          "assertion": "Mid-grammar restoration preserves legal-token state and never bypasses grammar."
+        },
+        {
+          "id": "G1-018",
+          "gate": "G1",
+          "test": "test_g1_018_stop_progress_and_eos",
+          "assertion": "Stop matcher and EOS status survive restore; stopped scope remains stopped."
+        },
+        {
+          "id": "G1-027",
+          "gate": "G1",
+          "test": "test_g1_027_stream_publication_boundary",
+          "assertion": "A resumable streamed token has a durable, fully consumed matching snapshot."
+        }
+      ],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_duplicate.py"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_duplicate_consumed_history_replaces_unpinned_entry"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c01_duplicate.py"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "prior-host",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r0[123].py"
+          },
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Run the newly added idle-controller regression against the preserved Luna source; do not change any existing assertion.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "S01",
       "title": "Bind branch snapshots to batch-slot leases",
       "kind": "implementation",
       "enabled": true,
       "depends_on": [
         "R03",
-        "R03-ADMISSION"
+        "R03-ADMISSION",
+        "C01-AUTO",
+        "C01-DUPLICATE"
       ],
       "files": [
         "src/program/generate.cpp",

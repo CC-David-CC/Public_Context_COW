@@ -286,3 +286,24 @@
 - Clear native RAM entries during full numerical-checkpoint eviction. The next
   ticket connects adapter restoration to automatic canonical materialization;
   ordinary concurrent serving remains separate work.
+
+## 2026-10-12: automatic canonical RAM restoration
+
+- Populate the existing native numerical cache at a consumed `_save` boundary.
+  On a canonical materialization miss, restore the exact complete history or
+  replay it. The no-native-cache adapter always reports a miss. Canonical
+  history and controller records remain the sole source of truth.
+- A detected input-identity misbinding clears native history acceleration before
+  replay. The original misassignment test still measures full canonical replay;
+  its assertions were not edited.
+- Replace exact unpinned duplicate live histories only when neither has an
+  intermediate checkpoint history. Keep the pinned-prefix rule. A real native
+  RAM regression exposed the duplicate; a native CPU counterexample and the
+  unchanged real regression both pass after the fix.
+- The canonical API passed nine exact fresh comparisons; the RAM adapter passed
+  its original six comparisons on the rebuilt native code. Zero forward work
+  was measured for a RAM restore, while changed-prefix and complete-eviction
+  misses each computed nine tokens. No physical host-sharing or speedup claim
+  follows from those work observations.
+- Preserve tested binary copies before rebuilding. New profiles point to their
+  retained SUT/oracle copies, so a subsequent build does not overwrite them.

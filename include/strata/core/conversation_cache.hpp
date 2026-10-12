@@ -411,7 +411,10 @@ public:
             // checkpoint while advancing only its private tail. Keep the
             // explicitly retained root image available to future siblings;
             // ordinary unpinned turn-back images can still be superseded.
-            if (!e.pinned() && e.cvec == cvec && deepest && !deepest->ids.empty() && held(*deepest)) {
+            const bool duplicate = e.checkpoints.empty() && checkpoints.empty() &&
+                                   e.live.ids == ids && e.live.imgs == images;
+            if (!e.pinned() && e.cvec == cvec &&
+                (duplicate || (deepest && !deepest->ids.empty() && held(*deepest)))) {
                 entries_.erase(entries_.begin() + (std::ptrdiff_t) i);
                 ++dropped;
                 continue;

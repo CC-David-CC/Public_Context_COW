@@ -291,3 +291,36 @@ lease. The adapter is exercised from checked canonical history leases, but
 automatic canonical cache-miss routing and ordinary concurrent conversation
 slots are still outstanding. Full checkpoint eviction now clears native RAM
 entries as well as hot handles and disk checkpoints.
+
+## Automatic canonical materialization, 2026-10-12
+
+C01-AUTO and C01-DUPLICATE passed their executed checks. `BranchingModel`
+now parks consumed numerical histories and checks the native RAM cache when a
+hot/disk checkpoint is absent. A RAM miss replays the canonical history. The
+adapter without a native history cache explicitly returns a miss. Detecting a
+misbound checkpoint clears native history acceleration before rebuilding.
+
+Nine fresh-process comparisons through the canonical API had maximum absolute
+error 0.0 and 87 oracle-computed tokens. A hot-cache eviction restored from RAM
+with zero prefix forward work. A different full prefix missed and computed its
+nine tokens. Removing every hot/RAM/disk numerical checkpoint left the immutable
+root intact and replayed its nine tokens. Each forced sibling append computed
+one token. G0 51/51 and four reference mutants passed.
+
+Regression testing exposed repeated parking retaining duplicate unpinned live
+histories. Exact duplicates with no intermediate checkpoint history now replace
+the old entry; pinned roots and differing history/image/steering keys remain.
+The original RAM test first failed with two entries; after the native rebuild
+it passed unchanged, including six exact fresh comparisons and actual allocation
+release. The original C01 binding and C01-COLD identity tests also passed.
+Four unchanged native executables passed 4219 cache, 972 validation, 1548 transfer
+and 434 session checks. Original R01/R02/R03 probes passed.
+
+[automatic-ram-validation.json](automatic-ram-validation.json) records executed
+IDs, errors retained during development, source/build/model fingerprints and
+measurements. Raw archive SHA-256:
+`5b0f90aee8b05bcc4bc5bf381a9dc2b4e9ca1654c402f69117edafc942706cb5`.
+The latest tested SUT and oracle copies are preserved in `native-auto-primary/bin`
+under the owned execution directory. The profile remains unqualified. No G1-G5
+PASS, ordinary serving parity, concurrent-kernel support, host-prefix sharing
+benefit or latency improvement is claimed. Next: S01 slot ownership/scheduling.
