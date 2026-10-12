@@ -142,7 +142,8 @@ two intended red failures, the append-only ledger and
 The Windows ledger has H00 and B00 validated. The owned Linux ledger records
 H00, B00, B01, B02, C01, C02, C03, R01, R02 and R03 validated; on the final
 R03 source fingerprint, R03 is current while R01 and R02 are stale and need
-post-build regression. Its next ticket is **S01**. C01,
+post-build regression. Its recorded next ticket was **S01**; the takeover
+review below supersedes that recommendation. C01,
 C02 and C03 run reports and hash-chained ledger snapshots are under
 `evidence/runs/luna/remote/C01-20261012/` and
 `evidence/runs/luna/remote/C02-20261012/` and
@@ -160,3 +161,36 @@ its own host with the recorded bindings.
 Read [the Luna handoff](../plans/luna/HANDOFF.md) and launch with
 [LAUNCH.txt](../plans/luna/LAUNCH.txt). No Codex CLI session, push, PR, service,
 or long certification campaign was launched by this handoff preparation.
+
+## Primary takeover, 2026-10-12
+
+Luna's execution turn stopped before takeover. Commit `6e651a15` preserves
+its implementation and tests. The owned execution directory is now
+`/home/dflanag3/branching-g3/primary-queue-20261012T031643` on llm-49 / r4090.
+
+- C02-REPAIR: PASS, three tests, no failures/errors/skips/xfails, 74.878 seconds.
+  Nine fresh-process full-vocabulary comparisons had maximum absolute error
+  0.0. Forced idle feeds, consumed-token publication, interrupted publication,
+  grammar/RNG resume and complete numerical-checkpoint eviction were checked.
+  The existing CUDA binaries and unqualified Q8_0/FP16 profile were used.
+- R03 repair: PASS for two actual C++ sanitizer/allocation-failure tests,
+  two unchanged R01/R02 probes and the unchanged R03 accounting probe.
+  ASan exposed a segment reference invalidated by vector reservation; capturing
+  its payload and offsets before reservation removed the use-after-free.
+  Four failed allocations left the payload and completed-copy counter intact.
+  The original R01 workspace-copy assertion also failed during review; restoring
+  unpublished value-copy behavior fixed it while retaining published range COW.
+- G0: PASS, 51/51 on Linux. Four reference mutants rejected. No registered
+  tests, equations or tolerances were edited. No new G1-G5 gate PASS is claimed.
+
+[takeover-validation.json](takeover-validation.json) records executed test IDs,
+reports, artifact hashes and limitations. Raw archive SHA-256 is
+`38173e40e26e661ccc6ec66a2f2528590a6c61e661302e2206fb7b3524c0a2ed`.
+All earlier failures remain in the ledger and raw evidence.
+
+C01's focused checkpoint-identity check does not establish normal native cache
+integration. The next work is a new CUDA engine build and completion of that
+integration before relying on S01's prerequisites. CUDA configuration succeeded
+with the changed source; compilation and native checks are not yet reported.
+HIP and SYCL compilers were not found on the execution host's PATH; those builds
+remain unverified. The long certification campaign remains disabled.

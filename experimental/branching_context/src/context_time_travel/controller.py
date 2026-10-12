@@ -15,6 +15,12 @@ def _validated_state(state):
     if not isinstance(state, dict):
         raise IntegrityError('Invalid decoder controller state')
     d = copy.deepcopy(state)
+    # Idle is the canonical pre-generation state. Forced inputs may extend it
+    # without inventing a sampler, grammar or random stream.
+    if d.get('status') == 'idle':
+        if set(d) != {'status'}:
+            raise IntegrityError('Invalid idle decoder controller state')
+        return d
     if d.get('schema') != 1:
         raise IntegrityError('Unsupported decoder controller schema')
     if d.get('rng_algorithm') != _RNG_ALGORITHM:

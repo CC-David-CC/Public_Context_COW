@@ -208,3 +208,21 @@
   `R03-20261012/post-reserve-retry/`. The corrected green took 0.886 seconds,
   and G0/mutants passed again. The final driver check is current with the new
   source fingerprint; `events-final.jsonl` preserves this later ledger state.
+
+## 2026-10-12: primary review after Luna stopped
+
+- Preserve Luna's source and tests in `6e651a15`; work in a separate owned remote
+  copy and retain all red runs. Ticket labels represent measured component scope,
+  not completed native integration or gate certification.
+- Restore the legal idle forced-token transition. An idle controller may contain
+  only its status; generation controllers still require the versioned schema.
+  Three tests passed, including nine exact fresh-process model comparisons.
+- Fix the real ASan use-after-free by capturing a segment's shared payload and
+  offsets before reserving its directory. Four injected allocation failures
+  preserved bytes and reported zero completed copy bytes.
+- Preserve unpublished workspace value-copy semantics required by the original
+  R01 probe. Published snapshots retain bounded written-range COW. The unchanged
+  R01/R02/R03 probes and two new safety tests passed; tests were not weakened.
+- Rebuild actual CUDA binaries before attributing host-sharing behavior to model
+  inference. The old pinned binaries establish controller-boundary results only.
+  Complete C01's native cache integration before advancing dependent slot work.

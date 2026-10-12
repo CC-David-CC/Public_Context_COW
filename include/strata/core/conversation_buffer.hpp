@@ -196,13 +196,24 @@ private:
                 auto& segment = segments_[i];
                 const size_t owned_refs = local_refs(segment.payload.get());
                 const bool shared = segment.payload.use_count() > (long)owned_refs;
-                if (shared || segment.published) {
-                    // Reserve before replacing the old view so allocation
-                    // failure leaves the buffer's published layout intact.
-                    segments_.reserve(segments_.size() + 2);
+                if (shared && !segment.published) {
+                    // Working value copies remain contiguous until publication.
+                    // Frozen checkpoints use bounded written-range copies below.
+                    auto private_payload = std::make_shared<Payload>(
+                        segment.payload->begin() + segment.offset,
+                        segment.payload->begin() + segment.offset + length);
+                    copied_bytes_.fetch_add(length, std::memory_order_relaxed);
+                    segment = Segment{std::move(private_payload), 0, length, false};
+                    ++i;
+                } else if (shared || segment.published) {
+                    // Keep values, not a reference into the directory: reserve
+                    // can relocate its Segment objects.
                     const auto payload = segment.payload;
                     const size_t payload_offset = segment.offset;
                     const bool published = segment.published;
+                    // Reserve before replacing the old view so allocation
+                    // failure leaves the buffer's published layout intact.
+                    segments_.reserve(segments_.size() + 2);
                     std::vector<Segment> parts;
                     parts.reserve(3);
                     if (local) parts.push_back(Segment{payload, payload_offset, local, published});

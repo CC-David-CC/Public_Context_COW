@@ -473,6 +473,159 @@
       "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
     },
     {
+      "id": "C02-REPAIR",
+      "title": "Restore idle Feed and validate real consumed publication",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "C02"
+      ],
+      "files": [
+        "experimental/branching_context/src/context_time_travel/controller.py",
+        "experimental/branching_context/tests/implementation/test_c02_idle.py"
+      ],
+      "invariant": "Canonical idle snapshots accept forced inputs without generation state. Versioned generation remains checked. Actual real-model A/B frontiers, durable publication, cancellation and cold RNG/grammar/stop resume agree with independent fresh histories.",
+      "registered_cases": [
+        "G1-004",
+        "G1-014",
+        "G1-015",
+        "G1-016",
+        "G1-017",
+        "G1-018",
+        "G1-027"
+      ],
+      "registered_assertions": [
+        {
+          "id": "G1-004",
+          "gate": "G1",
+          "test": "test_g1_004_every_accepted_boundary",
+          "assertion": "After each accepted generated/forced token, consumed length, positions and next logits align."
+        },
+        {
+          "id": "G1-014",
+          "gate": "G1",
+          "test": "test_g1_014_pending_sampled_token",
+          "assertion": "Saving immediately after sample cannot produce sampled-but-unconsumed cache frontier."
+        },
+        {
+          "id": "G1-015",
+          "gate": "G1",
+          "test": "test_g1_015_mid_generation_rng_replay",
+          "assertion": "Seven accepted tokens, save, twenty more, restore, repeat: tokens and draws agree."
+        },
+        {
+          "id": "G1-016",
+          "gate": "G1",
+          "test": "test_g1_016_sampler_multiple_draws",
+          "assertion": "Controller stores actual RNG draw cursor if sampler uses variable draws per token."
+        },
+        {
+          "id": "G1-017",
+          "gate": "G1",
+          "test": "test_g1_017_grammar_mid_production",
+          "assertion": "Mid-grammar restoration preserves legal-token state and never bypasses grammar."
+        },
+        {
+          "id": "G1-018",
+          "gate": "G1",
+          "test": "test_g1_018_stop_progress_and_eos",
+          "assertion": "Stop matcher and EOS status survive restore; stopped scope remains stopped."
+        },
+        {
+          "id": "G1-027",
+          "gate": "G1",
+          "test": "test_g1_027_stream_publication_boundary",
+          "assertion": "A resumable streamed token has a durable, fully consumed matching snapshot."
+        }
+      ],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "names": [
+              "test_c02_idle.IdleControllerTests.test_c02_idle_invariant"
+            ]
+          },
+          "expected_ids": [
+            "test_c02_idle_invariant"
+          ],
+          "assertion_text": "Forced input at an idle canonical snapshot"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c02_idle.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}"
+          },
+          "platform": "posix",
+          "artifacts": [
+            "{run_dir}/measurements.jsonl",
+            "{run_dir}/native.jsonl",
+            "{run_dir}/oracle.jsonl"
+          ]
+        },
+        {
+          "id": "controller-negative",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_c02.py"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Run the newly added idle-controller regression against the preserved Luna source; do not change any existing assertion.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "C03",
       "title": "Retain shared roots under background forks and eviction",
       "kind": "implementation",
@@ -920,6 +1073,65 @@
             "{python}",
             "scripts/mutation_smoke.py"
           ],
+          "platform": "posix"
+        },
+        {
+          "id": "red-asan",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "names": [
+              "test_r03_asan.HostViewSafetyTests.test_r03_published_write_after_directory_growth"
+            ]
+          },
+          "expected_ids": [
+            "test_r03_published_write_after_directory_growth"
+          ],
+          "assertion_text": "heap-use-after-free",
+          "platform": "posix"
+        },
+        {
+          "id": "green-asan",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r03_asan.py"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "red-workspace",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "names": [
+              "test_r01.HostPrefixSharingTests.test_r01_invariant"
+            ]
+          },
+          "expected_ids": [
+            "test_r01_invariant"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "prior-host",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_r0[12].py"
+          },
           "platform": "posix"
         }
       ],
