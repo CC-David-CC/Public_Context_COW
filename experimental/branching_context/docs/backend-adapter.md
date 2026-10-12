@@ -63,3 +63,9 @@ C. **Bitwise:** only claim if a specific pinned device, kernel, scheduling and s
 D. **Hot zero-copy:** only claim after measuring shared pages and bounded tail copies. A fallback that reruns prefill is still a correct semantic implementation, not a zero-copy implementation.
 
 **No backend installed?** G0 can pass; mark G1+ BLOCKED. Do not fabricate engine output or call mock tests a certification.
+
+## Current draft matrix (2026-10-12)
+
+The machine-readable boundary is `support-matrix.json`. Its one draft target is the pinned Qwen Q8_0 model, FP16 KV, token-at-a-time operator, Linux/ext4/CUDA and one active execution lease. llm-60 is primary; llm-49 provides a separate profile and agreement checks. Each executed result must bind its own binary, model-file, hardware and frozen calibration identities. A result on one host does not qualify another host.
+
+Status is DRAFT_VALIDATION_PENDING with no certified guarantees. Batched-prefill equivalence failed and remains outside this target. Q4 weights, quantized KV, HIP/SYCL and other models are unmeasured; native Windows storage, multimodal inputs and concurrent GPU leases are unsupported by the current implementation. Process termination tests do not establish power-loss durability. The registered matrix test executes both forced suffixes at every boundary and checks cold restoration, but cannot be counted until actually run under a frozen profile.

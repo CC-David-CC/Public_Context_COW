@@ -670,3 +670,7 @@ Executed four red assertion failures for numeric/Boolean schema acceptance; stri
 ### llm-60 current CPU regression run (2026-10-12)
 
 Copied 138 hash-verified source/test files at d3d67a24 to isolated `python-validation-d3d67a24`, leaving running numerical calibration untouched. First combined run: 13 pass/1 fail, because E01 recursively counted P01 authorization index as a report. Corrected the CPU test to require one canonical report, one snapshot-only access index and no other matching files; retained hash/corruption assertions. Re-execution passed 14/14, G0 51/51 and reference mutations 4/4. Original failure and source overlay hash preserved in `llm60-current-cpu-validation.json`. No GPU gate claim.
+
+### Q01 explicit draft matrix (2026-10-12)
+
+Added `docs/support-matrix.json`: one pending Q8_0/FP16/T=1/Linux/ext4/CUDA/token-ID/serialized-lease target with ten explicit unsupported, unmeasured or failed categories. CPU declaration test red then unchanged green; llm-60 G0 51/51 and reference mutants 4/4. Registered G5-001 written, unexecuted. Host filesystem observation found llm-49 `/tmp` is tmpfs although its workspace is ext4: prior default temporary CPU stores there exercised tmpfs, and future ext4 matrix runs must set TMPDIR to an ext4 test directory. llm-60 workspace and `/tmp` are ext4. Evidence: `supported-matrix-prework.json`.

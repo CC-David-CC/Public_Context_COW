@@ -499,3 +499,7 @@ JSON schema versions must be integers, not values that merely compare equal in P
 ### E01 report/index regression correction (2026-10-12)
 
 A recursive basename assertion predating P01 conflated a canonical evaluation report with its derived authorization index. Kept production representation unchanged. Corrected only that CPU assertion to validate both distinct artifacts and reject additional matches; canonical report hash and corruption tests remain. This fixes an obsolete test assumption, not a numerical/backend failure. Preserved failed run and exact source overlay.
+
+### Supported matrix filesystem scope (2026-10-12)
+
+Measured both workspace and temporary-store mounts. llm-49 workspace is ext4 but default /tmp is tmpfs; llm-60 uses ext4 for both. Earlier llm-49 CPU tempfile runs are tmpfs evidence, not ext4 durability evidence. Keep ext4 as the declared draft storage target and place future secondary-host matrix test stores there explicitly. No host-independent or power-loss claim follows from these runs.
