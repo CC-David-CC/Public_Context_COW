@@ -503,3 +503,7 @@ A recursive basename assertion predating P01 conflated a canonical evaluation re
 ### Supported matrix filesystem scope (2026-10-12)
 
 Measured both workspace and temporary-store mounts. llm-49 workspace is ext4 but default /tmp is tmpfs; llm-60 uses ext4 for both. Earlier llm-49 CPU tempfile runs are tmpfs evidence, not ext4 durability evidence. Keep ext4 as the declared draft storage target and place future secondary-host matrix test stores there explicitly. No host-independent or power-loss claim follows from these runs.
+
+### Frozen baseline operator descriptions (2026-10-12)
+
+Preserved the measured calibration and pinned execution identity. Their operator descriptions differ in prose, although full commands and actual executable hashes match. Finalizer recognizes only this exact historical pair after binary/command validation, retains the baseline description separately, and rejects an unknown/batched description in an executed negative test. No tolerance, raw numerical result, reference equation or model/backend identity changed.

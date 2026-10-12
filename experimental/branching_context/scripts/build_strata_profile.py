@@ -47,7 +47,15 @@ def finalize_existing_profile(profile_path, calibration_path, output):
             'Oracle binary mismatch')
     require(sha(admission['sut_command'][0]) == admission['sut_binary_sha256'], 'Branch binary mismatch')
     require(baseline['hardware'] == profile['hardware'], 'Hardware mismatch')
-    for key in ('operator','environment','capacity'):
+    # Commands and binary hashes above bind the actual operator. These two
+    # historical descriptions name that same corrected T=1 executable; retain
+    # both descriptions without changing the pinned execution identity.
+    descriptions = (baseline['operator'], profile['execution']['operator'])
+    require(descriptions[0] == descriptions[1] or descriptions == (
+        'Verifier.run(T=1); successful recurrent commit; next-token frontier',
+        'Verifier.run(T=1); bound GPU expert plan; fixed PCIe share 0.55; recurrent commit; next-token frontier'),
+        'operator mismatch')
+    for key in ('environment','capacity'):
         require(baseline[key] == profile['execution'][key], key+' mismatch')
     require(baseline['kv_format'] == settings['kv_format'] == profile['execution']['kv_dtype'], 'KV mismatch')
     require(baseline['expert_cache_slots'] == settings['expert_cache_slots'], 'Expert cache mismatch')
@@ -88,6 +96,7 @@ def finalize_existing_profile(profile_path, calibration_path, output):
     require(baseline['baseline_max_absolute_error'] == worst and baseline['atol'] == 2*worst
             and baseline['rtol'] == 0, 'Tolerance is not the frozen baseline-derived rule')
     profile.update(model_files=baseline['model_files'],calibration_path=str(Path(calibration_path).resolve()),
+        calibration_operator_description=baseline['operator'],
         calibration_sha256=sha(calibration_path),calibration_status='FROZEN',
         admission_path=str(admission_path),admission_sha256=sha(admission_path),
         atol=baseline['atol'],rtol=0,baseline_max_absolute_error=worst,

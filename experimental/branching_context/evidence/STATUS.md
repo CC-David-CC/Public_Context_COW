@@ -686,3 +686,7 @@ Added a test-only graph model using tuples/dictionaries/work lists, without Stor
 ### Q02 real interpreter written (2026-10-12)
 
 Added actual BranchingModel/FreshOracle operation execution with independent graph comparisons, per-boundary logits, immutable-byte checks, branch/receipt checks, isolated evaluation, checkpoint/evict/release/GC, and persisted operation/error/counter reports. Singleton-support generation checks exact token and draw frontier; reseed checks key/cursor. Missing interpreter assertion red executed; implementation is syntax-checked only and real green remains pending frozen profile. Campaign/failure reduction orchestration and registered >=1000 method are not complete. Evidence: `state-machine-real-interpreter.json`.
+
+### llm-60 numerical baseline frozen (2026-10-12)
+
+Completed all 27 fresh-process forwards and 18 repeat comparisons. All comparisons have maximum absolute error 0, freezing atol=0/rtol=0 by the unchanged 2x-baseline rule. Finalizer independently read/hash-checked all raw float32 frontiers, token fixtures, model receipts, commands, binaries and consumed-work counters. Original finalization failed on descriptive operator text; exact known descriptions are now accepted only after identical executable hashes/commands, preserving execution/model IDs and both descriptions. Unknown description rejection, N03 profile test, G0 51/51 and reference mutants 4/4 pass. Cumulative G1 is RUNNING on current primary checkout; calibration alone is not gate PASS. Evidence: `llm60-frozen-calibration.json`.
