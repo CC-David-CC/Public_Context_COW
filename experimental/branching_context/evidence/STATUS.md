@@ -654,3 +654,7 @@ Two process-based tests passed on llm-49: eight competing fork/append-versus-col
 ### P04 evaluation and rewind schedules (2026-10-12)
 
 Four CPU process tests passed on llm-49: eight fork/append races, four rewind races, collector crash recovery, and collection while public evaluate holds its actual history lease and after report publication. An isolated mutant removing the evaluator lease failed the new test. G0 passed 51/51 and reference mutation smoke caught 4/4. No native code changed. Registered GPU qualification remains pending the frozen calibration. Evidence: `history-collection-evaluation-rewind.json`.
+
+### Registered G5-009 concurrency coverage (2026-10-12)
+
+Expanded the registered case to synchronize collection, fork, rewind and real isolated evaluation across four processes while a GPU materialization holds the candidate. It requires unchanged canonical bytes, correct revision/receipt, valid evaluation and post-concurrency fresh-oracle agreement for candidate/root. This revision is syntax-checked only, not executed: frozen calibration remains pending. CPU process evidence above is supporting evidence, not a substitute for this registered run. Manifest: `registered-collection-concurrency.json`.
