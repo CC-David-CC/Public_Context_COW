@@ -13,16 +13,28 @@ commit a snapshot. The mathematical contract is in
 This draft provides a foundation for
 [#1938: retaining useful conversation prefixes](https://github.com/Niko1221/Strata/issues/1938)
 and [#1962: sharing identical prefix blocks](https://github.com/Niko1221/Strata/issues/1962).
-Full G0–G5 certification is incomplete. See
-[the original measured results](evidence/draft-validation.json).
+The latest [corrected-driver validation](evidence/dispatch-correction-validation.json)
+records eight supporting test methods and 34 exact full-vocabulary comparisons
+on Q8_0 weights with FP16 KV. G0 passed 51/51 and all four reference mutants
+were detected. Full G0-G5 certification remains incomplete.
 
-For #1938, immutable history and independent branch references let a background
-fork advance without replacing the main conversation's saved prefix. Cache
-admission and per-slot retention policy still need server integration. For
-#1962, retained CUDA images share physical allocations and copy writable tails;
-the measured harness uses one active execution lease. Host-RAM deduplication,
-concurrent batch-slot integration and image-input compatibility are not yet
-implemented or validated by this draft. Neither issue is closed by this work.
+Both private drivers previously omitted resident expert contributions. Their
+old agreement therefore did not establish ordinary-model correctness. The
+corrected drivers bind the actual expert dispatch plan; four one-token checks
+now match ordinary execution exactly, and 30 branching comparisons match a
+fresh full-history oracle. Earlier numerical evidence below is historical and
+must be read with that limitation.
+
+The prototype now has owner-affine execution leases, a FIFO slot queue, and
+native host-RAM snapshots with exact-history reuse. Execution is serialized on
+one backend workspace. Conversation-server integration, concurrent batch
+execution and image-input compatibility remain open. Neither issue is closed.
+
+Batched-prefill equivalence remains unresolved; help comparing ordinary
+prefill and token-level execution is welcome. The preserved
+[diagnostic evidence](evidence/normal-prefill-validation.json) records the
+mismatch without relaxing tolerances. The current numerical profile is still
+unqualified for gate admission.
 
 ## Implementation
 
@@ -37,8 +49,8 @@ implemented or validated by this draft. Neither issue is closed by this work.
   share retained allocations and copy writable tails. Recurrent state and
   frontiers have explicit ownership; activation can still copy those buffers.
 - `strata-fresh` starts an empty process/session for each full token history.
-  The recorded oracle binary was built separately at revision `857ace6c`; it
-  accepts no branch checkpoint or retained handle.
+  The current oracle is separately linked and accepts no branch checkpoint or
+  retained handle; its source and binary hashes are in the corrected evidence.
 - Native page hashes, ownership, allocation/release, forward-work and copy
   counters are read directly. Image handles are removed from a live-entry list
   when released, and page integrity is checked before activation.
