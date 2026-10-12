@@ -6,6 +6,26 @@ import hmac
 import math
 from .store import IntegrityError, InvalidOperation
 
+_RNG_ALGORITHM = 'hmac-sha256-u53-v1'
+_SAMPLER_ORDER = ['grammar/support','repetition-penalty','temperature','categorical']
+_DRAW_LIMIT = 1 << 128
+
+
+def _validated_state(state):
+    if not isinstance(state, dict):
+        raise IntegrityError('Invalid decoder controller state')
+    d = copy.deepcopy(state)
+    if d.get('schema') != 1:
+        raise IntegrityError('Unsupported decoder controller schema')
+    if d.get('rng_algorithm') != _RNG_ALGORITHM:
+        raise IntegrityError('Unsupported decoder RNG algorithm')
+    if d.get('sampler_order') != _SAMPLER_ORDER:
+        raise IntegrityError('Unsupported sampler processing order')
+    cursor = d.get('next_draw')
+    if type(cursor) is not int or not 0 <= cursor < _DRAW_LIMIT:
+        raise IntegrityError('Invalid decoder RNG draw cursor')
+    return d
+
 
 def start(policy, stream, history, vocab_size):
     p = dict(allowed=list(range(vocab_size)),temperature=1.0,repetition_penalty=1.0,
@@ -25,15 +45,15 @@ def start(policy, stream, history, vocab_size):
     grammar = p['grammar']
     if grammar is not None and (set(grammar) != {'start','transitions'} or grammar['start'] not in grammar['transitions']):
         raise InvalidOperation('Invalid token-DFA grammar')
-    return dict(schema=1,status='active',rng_algorithm='hmac-sha256-u53-v1',
+    return dict(schema=1,status='active',rng_algorithm=_RNG_ALGORITHM,
         stream_key=hashlib.sha256(stream.encode()).hexdigest(),next_draw=0,policy=p,
-        sampler_order=['grammar/support','repetition-penalty','temperature','categorical'],
+        sampler_order=copy.deepcopy(_SAMPLER_ORDER),
         grammar_state=grammar['start'] if grammar else None,seen=counts,stop_tail=[],
         accepted_in_scope=0,output_pending_hex='',output_decoder='utf8-incremental-replace-v1')
 
 
 def choose(logits, state):
-    d = copy.deepcopy(state)
+    d = _validated_state(state)
     if d['status'] != 'active':
         raise InvalidOperation('Generation scope is not active')
     p = d['policy']
@@ -55,6 +75,8 @@ def choose(logits, state):
         return allowed[max(range(len(scores)),key=scores.__getitem__)],d
     while True:
         draw = d['next_draw']
+        if draw >= _DRAW_LIMIT - 1:
+            raise IntegrityError('Decoder RNG draw cursor is exhausted')
         raw = hmac.new(bytes.fromhex(d['stream_key']),b'ctt-u53-v1:'+draw.to_bytes(16,'big'),hashlib.sha256).digest()
         u = (int.from_bytes(raw[:8],'big')>>11)/2**53
         d['next_draw'] += 1
@@ -73,7 +95,7 @@ def choose(logits, state):
 
 
 def consume(state, token, piece, is_eog):
-    d = copy.deepcopy(state)
+    d = _validated_state(state)
     if d['status'] != 'active':
         return d
     p = d['policy']

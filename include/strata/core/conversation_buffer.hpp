@@ -1,21 +1,30 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace strata::core {
 
-// Snapshot-owned host storage. Appending never relocates existing payloads;
-// only the small segment directory can move. No sharing or copy-on-write is
-// needed because a parked image and its retained active buffers have one owner.
+// Snapshot-owned host storage. Copies share immutable segments; a mutable visit
+// detaches the touched segment before exposing a writable pointer. Appending
+// never relocates existing payloads and only the small directory can move.
 class ConversationBuffer {
 public:
     static constexpr size_t segment_bytes = 16 * 1024 * 1024;
+    using Payload = std::vector<uint8_t>;
+    struct Segment {
+        std::shared_ptr<Payload> payload;
+        size_t offset = 0, length = 0;
+        bool published = false;
+    };
     ConversationBuffer() = default;
     ConversationBuffer(std::initializer_list<uint8_t> values) {
         resize(values.size());
@@ -37,22 +46,51 @@ public:
 
     size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
+    void freeze() { for (auto& segment : segments_) segment.published = true; }
+    size_t directory_bytes() const { return segments_.capacity() * sizeof(Segment); }
+    template<class Fn> void for_each_payload(Fn fn) const {
+        for (size_t i = 0; i < segments_.size(); ++i) {
+            bool seen = false;
+            for (size_t j = 0; j < i; ++j)
+                if (segments_[j].payload == segments_[i].payload) { seen = true; break; }
+            if (!seen) fn(segments_[i].payload.get(), segments_[i].payload->capacity(),
+                          (size_t)segments_[i].payload.use_count());
+        }
+    }
     size_t bytes() const {
-        size_t n = segments_.capacity() * sizeof(Segment);
-        for (const auto& segment : segments_) n += segment.capacity();
+        size_t n = directory_bytes();
+        for_each_payload([&](const void*, size_t capacity, size_t) { n += capacity; });
         return n;
     }
+    size_t shared_bytes() const {
+        size_t n = 0;
+        for (size_t i = 0; i < segments_.size(); ++i) {
+            size_t local = 0;
+            bool seen = false;
+            for (size_t j = 0; j < segments_.size(); ++j) {
+                if (segments_[j].payload == segments_[i].payload) {
+                    ++local;
+                    if (j < i) seen = true;
+                }
+            }
+            if (!seen && segments_[i].payload.use_count() > (long)local)
+                n += segments_[i].payload->capacity();
+        }
+        return n;
+    }
+    static size_t copied_bytes() { return copied_bytes_.load(std::memory_order_relaxed); }
     // Includes the old directory while reserve allocates its replacement.
     // Saturation makes an overflowing estimate fail admission before resize.
     size_t allocation_peak(size_t n) const {
         size_t total = bytes();
         if (n <= size_) return total;
-        const size_t spare = segments_.empty() ? 0 : segments_.back().capacity() - segments_.back().size();
+        const size_t spare = writable_back() ? segments_.back().payload->capacity() -
+                                                   segments_.back().payload->size() : 0;
         const size_t extra = n - size_ - std::min(n - size_, spare);
         const size_t full = extra / segment_bytes, tail = extra % segment_bytes;
         if (!add(total, full * segment_bytes)) return SIZE_MAX;
         if (tail && !add(total, segment_capacity(tail, full ? segment_bytes :
-                segments_.empty() ? 0 : segments_.back().capacity(), size_ != 0))) return SIZE_MAX;
+                segments_.empty() ? 0 : segments_.back().payload->capacity(), size_ != 0))) return SIZE_MAX;
         size_t count = segments_.size();
         if (!add(count, full + (tail != 0))) return SIZE_MAX;
         if (count > segments_.capacity() &&
@@ -62,29 +100,32 @@ public:
     void resize(size_t n, uint8_t value = 0) {
         if (n > size_) {
             const bool growing = size_ != 0;
-            const size_t spare = segments_.empty() ? 0 : segments_.back().capacity() - segments_.back().size();
+            const size_t spare = writable_back() ? segments_.back().payload->capacity() -
+                                                       segments_.back().payload->size() : 0;
             const size_t extend = std::min(n - size_, spare);
             const size_t extra = n - size_ - extend;
             segments_.reserve(segments_.size() + extra / segment_bytes + (extra % segment_bytes != 0));
             if (extend) {
-                segments_.back().resize(segments_.back().size() + extend, value);
+                auto& segment = segments_.back();
+                segment.payload->resize(segment.payload->size() + extend, value);
+                segment.length += extend;
                 size_ += extend;
             }
             while (size_ < n) {
                 const size_t count = std::min(segment_bytes, n - size_);
-                const size_t previous = segments_.empty() ? 0 : segments_.back().capacity();
-                Segment segment;
-                segment.reserve(segment_capacity(count, previous, growing));
-                segment.resize(count, value);
-                segments_.push_back(std::move(segment));
+                const size_t previous = segments_.empty() ? 0 : segments_.back().payload->capacity();
+                auto payload = std::make_shared<Payload>();
+                payload->reserve(segment_capacity(count, previous, growing));
+                payload->resize(count, value);
+                segments_.push_back(Segment{std::move(payload), 0, count, false});
                 size_ += count;
             }
         } else {
-            while (!segments_.empty() && size_ - segments_.back().size() >= n) {
-                size_ -= segments_.back().size();
+            while (!segments_.empty() && size_ - segments_.back().length >= n) {
+                size_ -= segments_.back().length;
                 segments_.pop_back();
             }
-            if (size_ > n) segments_.back().resize(segments_.back().size() - (size_ - n));
+            if (size_ > n) segments_.back().length -= size_ - n;
             size_ = n;
         }
     }
@@ -109,17 +150,17 @@ public:
         while (a < segments_.size() && b < other.segments_.size()) {
             const auto& left = segments_[a];
             const auto& right = other.segments_[b];
-            const size_t n = std::min(left.size() - x, right.size() - y);
-            if (std::memcmp(left.data() + x, right.data() + y, n)) return false;
+            const size_t n = std::min(left.length - x, right.length - y);
+            if (std::memcmp(left.payload->data() + left.offset + x,
+                            right.payload->data() + right.offset + y, n)) return false;
             x += n; y += n;
-            if (x == left.size()) { ++a; x = 0; }
-            if (y == right.size()) { ++b; y = 0; }
+            if (x == left.length) { ++a; x = 0; }
+            if (y == right.length) { ++b; y = 0; }
         }
         return true;
     }
 
 private:
-    using Segment = std::vector<uint8_t>;
     // A fresh capture allocates exactly its payload. Later appends reserve
     // geometrically growing segments, bounded by 16 MiB. Small chat turns then
     // extend the final allocation instead of adding one transfer per turn.
@@ -132,21 +173,84 @@ private:
         n += extra;
         return true;
     }
+    size_t local_refs(const Payload* payload) const {
+        size_t n = 0;
+        for (const auto& segment : segments_) n += segment.payload.get() == payload;
+        return n;
+    }
+    bool writable_back() const {
+        if (segments_.empty()) return false;
+        const auto& segment = segments_.back();
+        return !segment.published && segment.offset == 0 &&
+               segment.length == segment.payload->size() &&
+               segment.payload.use_count() == (long)local_refs(segment.payload.get());
+    }
+    void prepare_write(size_t offset, size_t count) {
+        size_t begin = 0;
+        for (size_t i = 0; i < segments_.size() && count;) {
+            const size_t length = segments_[i].length;
+            const size_t end = begin + length;
+            if (offset < end) {
+                const size_t local = offset - begin;
+                const size_t n = std::min(count, end - offset);
+                auto& segment = segments_[i];
+                const size_t owned_refs = local_refs(segment.payload.get());
+                const bool shared = segment.payload.use_count() > (long)owned_refs;
+                if (shared || segment.published) {
+                    // Reserve before replacing the old view so allocation
+                    // failure leaves the buffer's published layout intact.
+                    segments_.reserve(segments_.size() + 2);
+                    const auto payload = segment.payload;
+                    const size_t payload_offset = segment.offset;
+                    const bool published = segment.published;
+                    std::vector<Segment> parts;
+                    parts.reserve(3);
+                    if (local) parts.push_back(Segment{payload, payload_offset, local, published});
+                    auto private_payload = std::make_shared<Payload>(
+                        payload->begin() + payload_offset + local,
+                        payload->begin() + payload_offset + local + n);
+                    copied_bytes_.fetch_add(n, std::memory_order_relaxed);
+                    parts.push_back(Segment{std::move(private_payload), 0, n, false});
+                    if (local + n < length)
+                        parts.push_back(Segment{payload, payload_offset + local + n,
+                                                length - local - n, published});
+                    segments_.erase(segments_.begin() + (std::ptrdiff_t)i);
+                    segments_.insert(segments_.begin() + (std::ptrdiff_t)i, parts.begin(), parts.end());
+                    i += parts.size();
+                } else {
+                    ++i;
+                }
+                offset += n;
+                count -= n;
+            } else {
+                ++i;
+            }
+            begin = end;
+        }
+    }
     template<class Self, class Fn> static bool visit_impl(Self& self, size_t offset, size_t count, Fn fn) {
         if (offset > self.size_ || count > self.size_ - offset) return false;
+        if constexpr (!std::is_const_v<Self>) self.prepare_write(offset, count);
         size_t begin = 0;
-        for (auto& segment : self.segments_) {
+        for (size_t i = 0; i < self.segments_.size(); ++i) {
             if (!count) break;
-            const size_t end = begin + segment.size();
+            const auto& segment = self.segments_[i];
+            const size_t end = begin + segment.length;
             if (offset < end) {
                 const size_t n = std::min(count, end - offset);
-                if (!fn(segment.data() + offset - begin, n, offset)) return false;
+                if constexpr (!std::is_const_v<Self>) {
+                    auto& writable = self.segments_[i];
+                    if (!fn(writable.payload->data() + writable.offset + offset - begin, n, offset)) return false;
+                } else {
+                    if (!fn(segment.payload->data() + segment.offset + offset - begin, n, offset)) return false;
+                }
                 offset += n; count -= n;
             }
             begin = end;
         }
         return count == 0;
     }
+    inline static std::atomic<size_t> copied_bytes_{0};
     std::vector<Segment> segments_;
     size_t size_ = 0;
 };

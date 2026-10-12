@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -48,9 +49,22 @@ struct ConversationKv {
     int format = 0;
     int64_t cells = 0, heads = 0, head_dim = 0, page_size = 0, pooled_rows = 0, idx_dim = 0;
     ConversationBuffer k, v, k_scale, v_scale, pooled;
-    size_t bytes() const {
-        return k.bytes() + v.bytes() + k_scale.bytes() + v_scale.bytes() + pooled.bytes();
+    template<class Seen> size_t bytes(Seen& seen) const {
+        size_t n = 0;
+        auto add_buffer = [&](const ConversationBuffer& buffer) {
+            n += buffer.directory_bytes();
+            buffer.for_each_payload([&](const void* allocation, size_t capacity, size_t) {
+                if (seen.insert(allocation).second) n += capacity;
+            });
+        };
+        add_buffer(k); add_buffer(v); add_buffer(k_scale); add_buffer(v_scale); add_buffer(pooled);
+        return n;
     }
+    template<class Fn> void visit_payloads(Fn fn) const {
+        k.for_each_payload(fn); v.for_each_payload(fn); k_scale.for_each_payload(fn);
+        v_scale.for_each_payload(fn); pooled.for_each_payload(fn);
+    }
+    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
 };
 
 struct ConversationKvReuse {
@@ -59,12 +73,17 @@ struct ConversationKvReuse {
     int64_t captured_tokens = 0, unchanged_tokens = 0;
     // With a layer split: the later stages' own retained K/V, one per stage, same extents (empty: none)
     std::vector<ConversationKvReuse> stages;
-    size_t bytes() const {
+    template<class Seen> size_t bytes(Seen& seen) const {
         size_t n = kv.capacity() * sizeof(ConversationKv) + stages.capacity() * sizeof(ConversationKvReuse);
-        for (const auto& layer : kv) n += layer.bytes();
-        for (const auto& s : stages) n += s.bytes();
+        for (const auto& layer : kv) n += layer.bytes(seen);
+        for (const auto& s : stages) n += s.bytes(seen);
         return n;
     }
+    template<class Fn> void visit_payloads(Fn fn) const {
+        for (const auto& layer : kv) layer.visit_payloads(fn);
+        for (const auto& s : stages) s.visit_payloads(fn);
+    }
+    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
 };
 
 /// Layer-split parking: each running checkpoint holds the first stage's state and, in `stage_parts`, one part per
@@ -163,14 +182,19 @@ struct SavedConversation {
         return false;
     }
 
-    size_t bytes() const {
+    template<class Seen> size_t bytes(Seen& seen) const {
         size_t n = live.bytes() + checkpoints.capacity() * sizeof(ConversationCheckpoint) +
                    kv.capacity() * sizeof(ConversationKv);
-        for (const auto& s : stage_images) n += s.bytes();
+        for (const auto& s : stage_images) n += s.bytes(seen);
         for (const auto& c : checkpoints) n += c.bytes();
-        for (const auto& k : kv) n += k.bytes();
+        for (const auto& k : kv) n += k.bytes(seen);
         return n;
     }
+    template<class Fn> void visit_payloads(Fn fn) const {
+        for (const auto& s : stage_images) s.visit_payloads(fn);
+        for (const auto& k : kv) k.visit_payloads(fn);
+    }
+    size_t bytes() const { std::unordered_set<const void*> seen; return bytes(seen); }
 };
 
 template<class Token>
@@ -190,6 +214,9 @@ int64_t conversation_prefix(const ConversationCheckpoint& c, const std::vector<T
 
 class ConversationCache {
 public:
+    struct StorageMetrics {
+        size_t payload_bytes = 0, allocations = 0, owners = 0, copied_bytes = 0;
+    };
     struct Match {
         size_t index = 0;
         int64_t tokens = 0;
@@ -204,7 +231,26 @@ public:
     /// with one long conversation spends the cache on the side requests and evicts the long one (oldest first) -
     /// exactly the reuse it wanted.  0 parks every conversation, whatever its size.
     bool wants(int64_t tokens) const { return min_tokens_ <= 0 || tokens >= min_tokens_; }
-    size_t bytes() const { return bytes_ + reuse_.bytes(); }
+    size_t bytes() const {
+        std::unordered_set<const void*> seen;
+        size_t total = reuse_.bytes(seen);
+        for (const auto& entry : entries_) total += entry.bytes(seen);
+        return total;
+    }
+    StorageMetrics storage_metrics() const {
+        StorageMetrics result;
+        std::unordered_set<const void*> seen;
+        auto account = [&](const void* allocation, size_t capacity, size_t owners) {
+            if (!seen.insert(allocation).second) return;
+            result.payload_bytes += capacity;
+            ++result.allocations;
+            result.owners += owners;
+        };
+        reuse_.visit_payloads(account);
+        for (const auto& entry : entries_) entry.visit_payloads(account);
+        result.copied_bytes = ConversationBuffer::copied_bytes();
+        return result;
+    }
     size_t size() const { return entries_.size(); }
     size_t evictions() const { return evictions_; }
     // the longest parked conversation, in tokens (--kv-grow keeps the K/V that long while it could be restored)
@@ -222,7 +268,13 @@ public:
         reuse_ = {};
         ConversationKvReuse candidate{std::move(kv), tokens, tokens, {}};
         for (auto& k : stage_kv) candidate.stages.push_back(ConversationKvReuse{std::move(k), tokens, tokens, {}});
-        if (enabled() && candidate.bytes() <= budget_ - bytes_) reuse_ = std::move(candidate);
+        if (enabled()) {
+            std::unordered_set<const void*> seen;
+            size_t used = reuse_.bytes(seen);
+            for (const auto& entry : entries_) used += entry.bytes(seen);
+            const size_t additional = candidate.bytes(seen);
+            if (used <= budget_ && additional <= budget_ - used) reuse_ = std::move(candidate);
+        }
     }
     void limit_reuse(int64_t first_dirty) {
         reuse_.unchanged_tokens = std::min(reuse_.unchanged_tokens, first_dirty);
@@ -256,7 +308,6 @@ public:
 
     SavedConversation take(size_t index) {
         SavedConversation out = std::move(entries_.at(index));
-        bytes_ -= out.bytes();
         entries_.erase(entries_.begin() + (std::ptrdiff_t) index);
         return out;
     }
@@ -266,7 +317,7 @@ public:
     bool make_room(size_t incoming, size_t held = 0) {
         if (!enabled() || held > budget_ || incoming > budget_ - held) return false;
         if (bytes() > budget_ - held - incoming) reuse_ = {};
-        while (!entries_.empty() && (entries_.size() >= slots_ || bytes_ > budget_ - held - incoming)) {
+        while (!entries_.empty() && (entries_.size() >= slots_ || bytes() > budget_ - held - incoming)) {
             // the oldest entry that does not hold a pinned shared prefix leaves; with only pinned ones left the new
             // image does not fit (the caller skips parking it - the pinned prefix is what the queries come back to)
             if (!evict_oldest()) return false;
@@ -283,7 +334,6 @@ public:
     bool evict_oldest() {
         auto victim = std::find_if(entries_.begin(), entries_.end(), [](const SavedConversation& e) { return !e.pinned(); });
         if (victim == entries_.end()) return false;
-        bytes_ -= victim->bytes();
         entries_.erase(victim);
         ++evictions_;
         return true;
@@ -294,7 +344,6 @@ public:
     size_t clear() {
         const size_t n = entries_.size();
         entries_.clear();
-        bytes_ = 0;
         reuse_ = {};
         return n;
     }
@@ -323,8 +372,11 @@ public:
             const ConversationCheckpoint* deepest = nullptr;
             for (const auto& c : e.checkpoints)
                 if (!deepest || c.ids.size() > deepest->ids.size()) deepest = &c;
-            if (e.cvec == cvec && deepest && !deepest->ids.empty() && held(*deepest)) {
-                bytes_ -= e.bytes();
+            // An outgoing background fork may inherit the same pinned root
+            // checkpoint while advancing only its private tail. Keep the
+            // explicitly retained root image available to future siblings;
+            // ordinary unpinned turn-back images can still be superseded.
+            if (!e.pinned() && e.cvec == cvec && deepest && !deepest->ids.empty() && held(*deepest)) {
                 entries_.erase(entries_.begin() + (std::ptrdiff_t) i);
                 ++dropped;
                 continue;
@@ -337,17 +389,29 @@ public:
     size_t superseded() const { return superseded_; }
 
     bool put(SavedConversation&& image, size_t held = 0) {
-        const size_t n = image.bytes();
-        if (!enabled() || held > budget_ || n > budget_ - held) return false;   // make_room's refusal, first
+        if (!enabled() || held > budget_) return false;
+        auto additional_bytes = [&] {
+            std::unordered_set<const void*> seen;
+            size_t used = reuse_.bytes(seen);
+            for (const auto& entry : entries_) used += entry.bytes(seen);
+            return image.bytes(seen);
+        };
+        size_t incoming = additional_bytes();
+        if (incoming > budget_ - held) return false;
+        while (entries_.size() >= slots_ || bytes() > budget_ - held - incoming) {
+            if (!evict_oldest()) return false;
+            incoming = additional_bytes();
+            if (incoming > budget_ - held) return false;
+        }
+        // Superseded images are removed only after admission succeeds, so a
+        // refused allocation cannot discard another retained branch.
         drop_superseded(image.live.ids, image.live.imgs, image.checkpoints, image.cvec);
-        if (!make_room(n, held)) return false;
         entries_.push_back(std::move(image));
-        bytes_ += n;
         return true;
     }
 
 private:
-    size_t budget_ = 0, slots_ = 0, bytes_ = 0, evictions_ = 0, superseded_ = 0;
+    size_t budget_ = 0, slots_ = 0, evictions_ = 0, superseded_ = 0;
     int64_t min_tokens_ = 0;   // --conversation-cache-min-tokens: 0 parks every conversation, whatever its size
     std::deque<SavedConversation> entries_; // least recently active first
     ConversationKvReuse reuse_;

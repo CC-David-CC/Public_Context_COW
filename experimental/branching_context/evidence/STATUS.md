@@ -3,8 +3,12 @@
 The Luna handoff harness is implemented on local branch
 `feat/branching-completion`, based on publication commit `6dd5f9df`. The queue
 contains 34 tickets, including a disabled exhaustive-certification ticket.
-No inference implementation or registered acceptance assertion changed in
-this handoff. Cache integration, host-RAM sharing, G4 and G5 remain queued.
+The first implementation tickets now bind numerical checkpoints to exact
+canonical histories, validate controller versions and draw cursors, keep
+pinned main-prefix images during background-fork cache cleanup, and share
+immutable host-buffer segments with bounded copy-on-write for published tail
+ranges and cache-wide unique-payload budget accounting. Concurrent-slot
+integration, G4 and G5 remain queued.
 
 ## Executed bounded checks, October 12 UTC
 
@@ -19,6 +23,12 @@ this handoff. Cache integration, host-RAM sharing, G4 and G5 remain queued.
 | Resources in the short CUDA case | 216 COW pages / 452984832 bytes; sampled tracked-VMM peak 704643072 bytes |
 | Ownership cleanup | Eight handles/images released, one context closed, 27 leases acquired/released |
 | Native Windows reference checks | G0 failed: 11 tests ran, two import errors; demo and mutation smoke also failed on missing `fcntl` |
+| C01 checkpoint/history binding | One real-CUDA ticket test passed; a deliberately misassigned same-length checkpoint missed and replayed 33 canonical tokens |
+| C02 controller identity | One model-free test passed; eight corrupted controller/RNG cases were rejected before sampling or input consumption |
+| C03 pinned-root retention | Native CPU policy test passed; a background child no longer supersedes a pinned root, and only the unpinned child was evicted |
+| R01 host-prefix ownership | Native CPU probe passed; siblings shared 4096 segment bytes, one changed byte caused 4096 actual bytes copied, and exact-prefix mismatch was rejected |
+| R02 published-tail isolation | Native CPU probe passed; a 17-byte write to a unique published page and a 23-byte sibling tail write copied exactly those bytes |
+| R03 unique host-storage accounting | Native CPU probe passed; 4,096 shared payload bytes charged once, owners moved 2 → 1 → 0 through eviction and clear |
 
 The model case used existing pinned `ed5c4557` binaries, Q8_0 weights, FP16 KV
 and the token-level operator on llm-49/r4090 (RTX 4090). The harness checked 422
@@ -34,6 +44,73 @@ This checks immutable retained bytes and measured COW, not populated full-prefix
 sharing across long branches. That sharing/accounting qualification remains
 outstanding.
 
+The C01 run used the existing pinned SUT (`9d045e70`) and separately linked
+oracle binding (`d2e6b715`) with the Q8_0/FP16 profile (`b62135ea`). The C01 test
+did not invoke the oracle or compare logits, so it has no C01 numerical maximum
+and does not qualify G1. Its direct native trace counted 99 forward tokens:
+three 33-token prefill operations, including the 33-token replay after the
+wrong checkpoint association. It reused 11 prior model-file hash receipts and
+hashed 0 model bytes. The final native counter sample reported 251658240
+tracked VMM bytes, 354189456 exported running-state bytes, 0 COW pages and 0
+copied bytes; this isolated replay test does not measure sharing benefit.
+
+C02 validated against the versioned controller contract without invoking the
+model, SUT or oracle. Its test exercised four corruptions (unknown RNG ID,
+unknown sampler order, negative draw cursor and cursor beyond the 128-bit PRF
+range) through both sampling and input consumption. All were rejected as
+`IntegrityError`; G0 and the four reference mutants passed. This run produced
+no model, numerical, GPU-resource or throughput measurement.
+
+C03 exercised the native cache header with a CPU C++ probe, plus canonical
+store eviction and cancellation before publication. The pinned main prefix
+remained available after a background child was parked and evicted; canonical
+root and child histories remained readable, while the canceled child created
+no object. The changed native header was compiled by the probe, but the full
+engine was not built for CUDA, HIP or SYCL. Physical sharing, allocation bytes,
+latency and overall RAM savings were not measured; backend builds are queued
+under X01.
+
+R01 changed `ConversationBuffer` copies to share owned segments. Mutable visits
+and partial resize detach shared segments before exposing or changing payloads;
+the class reports shared segment capacity and cumulative bytes copied by COW.
+Its direct probe observed 4096 shared bytes across three sibling buffers and
+4096 copied bytes when one sibling changed one byte. The exact-prefix cache
+probe matched a three-token root only when the full prefix agreed. Green took
+0.779 seconds; G0 and reference mutants passed. The driver checked the
+Q8_0/FP16 profile plus the existing SUT and separately linked oracle hashes,
+but this CPU test made no model forward or numerical comparison. The 4 KiB
+fixture is an ownership check, not a whole-workload RAM-savings or throughput
+measurement. No CUDA, HIP or SYCL engine build was performed; X01 remains
+queued.
+
+R02 made buffer segments explicit views over owned payloads. Snapshot capture
+freezes every K/V, scale and pooled segment, including unique buffers. A later
+mutable visit splits the view at the written range and copies only that range,
+keeping neighboring prefix/suffix bytes on the published payload. The CPU
+probe measured 17 bytes copied for a write to a unique frozen buffer and 23
+bytes for a sibling tail write; the parent byte stayed unchanged. Green took
+0.581 seconds; G0 and reference mutants passed. Driver bindings included the
+Q8_0/FP16 profile, SUT and separate oracle, but this test did not load them or
+compare logits. It did not run physical CUDA page audits, scale/indexer/GDN/PLE
+integration checks, or exhaustive G3-003 coverage. Those original assertions
+remain unchanged and unqualified; no backend build or gate certification was
+performed.
+
+R03 changed cache byte accounting to deduplicate shared payload allocations
+across parked snapshots and retained reuse images. Direct storage metrics
+report unique payload capacity, allocation count, current `shared_ptr` owner
+count, and cumulative COW-copied bytes. The probe measured 4,644 cache bytes
+for two snapshots sharing one 4,096-byte payload; the owner count fell from
+two to one when the first entry was evicted and to zero after clear. Remaining
+bytes were per-snapshot directories and metadata. The final green after a
+pre-reservation safety fix took 0.886 seconds; G0 and reference mutants passed.
+An intermediate rerun preserved a compile typo in that reservation fix. No
+host RAM-pressure telemetry, OOM injection, model restore, disk roundtrip, GPU
+work or numerical comparison was run. The registered G2/G3 methods remain
+unexecuted; this ticket is not gate certification. `conversation_memory.cpp`
+telemetry was unchanged because this probe measures cache allocations through
+their actual payload owners, not an OS available-memory estimate.
+
 ## Gate boundaries
 
 | Gate | Status for this handoff |
@@ -46,7 +123,10 @@ outstanding.
 | G5 | BLOCKED: 12 registered methods and release hardening outstanding |
 
 There are 85 registered cases and 62 existing method bodies. The 18 harness
-tests are separate and do not increase registered implementation coverage.
+tests and C01-R03 implementation tests are separate from the registered suite
+and do not increase registered implementation coverage. G4 still lacks its 11
+registered methods; G5 still lacks its 12. Ticket validation is not gate
+certification.
 The runner preserves old validation, exposes stale fingerprints and never
 converts a ticket outcome into a gate PASS. The long campaign remains disabled.
 
@@ -59,8 +139,18 @@ two intended red failures, the append-only ledger and
 `remote/evidence-final.zip`. Archive SHA-256:
 `7a7a3b235f33e01d0ac281d022f0165c378125d7c4abda276b8c50b7e65bc535`.
 
-The Windows ledger has H00 and B00 validated. The owned Linux ledger has H00,
-B00, B01 and B02 validated; its next implementation ticket is **C01**.
+The Windows ledger has H00 and B00 validated. The owned Linux ledger records
+H00, B00, B01, B02, C01, C02, C03, R01, R02 and R03 validated; on the final
+R03 source fingerprint, R03 is current while R01 and R02 are stale and need
+post-build regression. Its next ticket is **S01**. C01,
+C02 and C03 run reports and hash-chained ledger snapshots are under
+`evidence/runs/luna/remote/C01-20261012/` and
+`evidence/runs/luna/remote/C02-20261012/` and
+`evidence/runs/luna/remote/C03-20261012/` and
+`evidence/runs/luna/remote/R01-20261012/` and
+`evidence/runs/luna/remote/R02-20261012/` and
+`evidence/runs/luna/remote/R03-20261012/`. The local Windows ledger remains
+separate; do not rerun remote reference/model evidence to make it appear local.
 The remote location is recorded in `evidence/runs/luna/remote/location.json`:
 `/home/dflanag3/branching-g3/luna-handoff-20261012T015402-76cb1e6d`.
 Do not repeat the completed reference/model checks merely because the local

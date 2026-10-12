@@ -169,6 +169,7 @@ class Checkpoint:
     blob: object
     frontier: tuple
     checksum: str
+    input_identity: str = ''
 
     @staticmethod
     def digest(blob, frontier):
@@ -223,12 +224,13 @@ class BranchingModel:
     def snapshot_bytes(self, snapshot):
         return (self.store.objects/(snapshot+'.json')).read_bytes()
 
-    def _save(self, lease):
+    def _save(self, lease, history):
         self._allocation_fault('before_native_export',lease)
         blob = self.backend.export(lease)
         frontier = self.backend.logits(lease)
         return Checkpoint(self.profile['model_contract_id'],self.profile['execution_profile_id'],
-            self.backend.position(lease)+1,blob,frontier,Checkpoint.digest(blob,frontier))
+            self.backend.position(lease)+1,blob,frontier,Checkpoint.digest(blob,frontier),
+            self._input_identity(history))
 
     @contextmanager
     def materialize(self, snapshot):
@@ -236,11 +238,18 @@ class BranchingModel:
         if record['model_contract_id'] != self.profile['model_contract_id']:
             raise IntegrityError('Snapshot model contract mismatch')
         history = self.history(snapshot)
+        input_identity = self._input_identity(history)
         with self.backend.lease() as lease:
             saved = self.cache.get(snapshot)
             if saved is None and (self.checkpoint_directory/(snapshot+'.json')).exists():
                 saved = self._load_checkpoint(snapshot,history)
                 self.cache[snapshot] = saved
+            if saved is not None and saved.input_identity != input_identity:
+                # The cache is only an accelerator. Never restore a same-sized
+                # image for another canonical input history; rebuild from the
+                # immutable snapshot inputs instead.
+                self.cache.pop(snapshot, None)
+                saved = None
             if saved:
                 if saved.model_contract_id != self.profile['model_contract_id'] or saved.execution_profile_id != self.profile['execution_profile_id']:
                     raise IntegrityError('Checkpoint contract/profile mismatch')
@@ -253,7 +262,7 @@ class BranchingModel:
                     self.cache[snapshot] = saved
             else:
                 self.backend.consume(lease,history)
-                saved = self._save(lease)
+                saved = self._save(lease,history)
                 self.cache[snapshot] = saved
             if self.backend.position(lease) != len(history)-1:
                 raise IntegrityError('Restored consumed position mismatch')
@@ -262,9 +271,10 @@ class BranchingModel:
     def create(self, ids, *, contract=None):
         if contract is not None and dict(contract) != dict(self.contract):
             raise IntegrityError('Unsupported or incompatible model/input semantics')
+        ids = tuple(ids)
         with self.backend.lease() as lease:
             self.backend.consume(lease,ids)
-            saved = self._save(lease)
+            saved = self._save(lease,ids)
         sid = self.store.create_root(self.profile['model_contract_id'],ids,{'status':'idle'})
         self.cache[sid] = saved
         return sid
@@ -275,6 +285,7 @@ class BranchingModel:
     def _feed(self, snapshot, ids, decoder):
         if not ids:
             return snapshot
+        history = self.history(snapshot) + tuple(ids)
         next_decoder = copy.deepcopy(decoder)
         for token in ids:
             if type(token) is not int or not 0<=token<self.backend.vocab_size:
@@ -285,7 +296,7 @@ class BranchingModel:
             for token in ids:
                 self.backend.consume(lease,(token,))
                 self._lease_fault('after_token_consume')
-            saved = self._save(lease)
+            saved = self._save(lease,history)
         sid = self.store.append(snapshot,ids,next_decoder)
         self.cache[sid] = saved
         return sid
@@ -391,7 +402,8 @@ class BranchingModel:
             if type(size) is not int or size<=0 or len(payload)!=size+4*self.backend.vocab_size or hashlib.sha256(payload).hexdigest()!=sha:
                 raise IntegrityError('Checkpoint payload corruption')
             logits = struct.unpack('<'+str(self.backend.vocab_size)+'f',payload[size:])
-            return Checkpoint(required['model_contract_id'],required['execution_profile_id'],len(history),payload[:size],logits,sha)
+            return Checkpoint(required['model_contract_id'],required['execution_profile_id'],len(history),
+                payload[:size],logits,sha,required['input_identity'])
         except (OSError,KeyError,TypeError,ValueError) as error:
             raise IntegrityError('Invalid or incomplete checkpoint') from error
 

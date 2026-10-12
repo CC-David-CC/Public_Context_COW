@@ -281,6 +281,13 @@ bool conversation_snapshot_save(SavedConversation& image, const ConversationView
     // reached. Refresh that page even when the main prefix continued unchanged.
     if (draft && !conversation_kv_save(captured.kv.back(), *draft, g, upto, false, error,
                                        std::max<int64_t>(0, unchanged - 1), reused_bytes)) return false;
+    // Published snapshots keep every captured physical segment immutable,
+    // including a segment that currently has only this one owner. A later
+    // reuse capture can detach just its rewritten byte range.
+    for (auto& layer : captured.kv) {
+        layer.k.freeze(); layer.v.freeze(); layer.k_scale.freeze();
+        layer.v_scale.freeze(); layer.pooled.freeze();
+    }
     image = std::move(captured);
     return true;
 }

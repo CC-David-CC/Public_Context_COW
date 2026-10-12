@@ -44,3 +44,167 @@
 - Captured host-specific raw paths/bindings in ignored private evidence. Public
   summary records source/build/model identities and measured scope. No push,
   submission, merge or long-running certification was performed.
+
+## October 12 UTC: C01 checkpoint history binding
+
+- Added the SHA-256 identity of the complete consumed token sequence to each
+  in-memory checkpoint. Materialization drops a hot entry whose identity does
+  not match the immutable snapshot and replays the canonical history. The
+  existing disk manifest continues to validate history, model contract and
+  execution profile before accepting a serialized checkpoint.
+- The adversarial test first failed with an `AssertionError` because the
+  checkpoint carried no input identity. On the pinned Q8_0/FP16 Linux-CUDA
+  profile, the green test deliberately associated a checkpoint from a
+  different, same-length history and asserted that the backend reprocessed
+  all 33 canonical tokens. G0 and the four reference mutants also passed.
+- Direct native trace: 99 forward tokens total (three full 33-token prefills),
+  354189456 exported running-state bytes, final sampled tracked-VMM counter
+  251658240 bytes, 0 COW pages, 0 copied bytes. Eleven unchanged model hash
+  receipts were reused and 0 model bytes were hashed. These counters describe
+  this isolation/replay case and do not establish a RAM or latency benefit.
+- C01's green test did not invoke the bound fresh-process oracle and made no
+  numerical comparison. The existing exact G3-004 observations remain the
+  only reported numerical result; neither they nor C01 qualify the profile.
+- One initial remote red launch could not stage its test because the target
+  directory was absent. A separate scratch attempt accidentally copied the
+  fixed implementation before its red phase and was recorded as `FAIL`; it is
+  retained as a failed attempt and is not part of C01 validation. The final
+  clean-source scratch produced the accepted red and green evidence. A 30-second
+  client observation ended while green remained live; the same recorded child
+  was inspected and allowed to finish (84.31 seconds), with no duplicate run.
+- Final C01 run records and the remote ledger snapshot are preserved at
+  `evidence/runs/luna/remote/C01-20261012/`. The native engine files and pinned
+  SUT/oracle binaries were unchanged, so this ticket did not require a backend
+  rebuild. Ticket validation does not change any gate status.
+
+## October 12 UTC: C02 versioned controller validation
+
+- Controller state now checks schema 1, the declared HMAC-SHA256 RNG version,
+  the exact sampler processing order and an in-range 128-bit draw cursor before
+  either token selection or forced-token consumption. Exhausted cursors return
+  an integrity error instead of overflowing inside `int.to_bytes`.
+- The first two red attempts were preserved but not accepted: unittest subtests
+  reported expected `OverflowError`s as errors, then the runner could not match
+  subtest IDs to the registered red assertion. The final deterministic test
+  aggregated all outcomes into the required assertion ID and recorded RED.
+  Green rejected all eight combinations (four corruptions through `choose`
+  and `consume`); G0 and four reference mutants passed.
+- The model-free green took 0.183 seconds. No model was loaded; no SUT/oracle
+  forward, GPU work, numeric maximum or resource measurement was produced.
+  Linux bindings were still checked by the driver. The backend source and
+  binaries were unchanged, so no backend rebuild was required.
+- C02 run records and the hash-chained remote ledger snapshot are preserved at
+  `evidence/runs/luna/remote/C02-20261012/`. Ticket validation is not G1
+  certification; the 85 registered cases remain governed by the original
+  assertions and tolerances.
+
+## October 12 UTC: C03 pinned-root retention
+
+- `ConversationCache::drop_superseded` now retains an existing image when it
+  owns a pinned checkpoint. A background child carrying the same root
+  checkpoint cannot delete the parked main prefix. Unpinned turn-back images
+  remain eligible for superseded cleanup and eviction.
+- The C03 red run failed because parking the background child removed the
+  pinned root. The green CPU-only C++ probe confirmed two parked images after
+  the fork, eviction of the unpinned child, and refusal to evict the pinned
+  root. The same test evicted derived Python cache state, confirmed canonical
+  root/child history remained readable, and faulted before publishing a
+  canceled child; no object appeared. G0 and the four reference mutants passed.
+- The probe compiled the changed header with the host C++ compiler; the native
+  CUDA, HIP and SYCL engine builds were not run. No transformer forward,
+  populated KV-sharing, resource, numerical or latency measurement was made.
+  Full backend build evidence remains in X01, and this ticket is not G2/G3
+  certification.
+- C03 evidence and the hash-chained remote ledger snapshot are preserved at
+  `evidence/runs/luna/remote/C03-20261012/`.
+
+## October 12 UTC: R01 immutable host-buffer segments
+
+- Changed `ConversationBuffer` copies to share `shared_ptr`-owned segments.
+  Mutable `visit` and an in-place partial resize detach before writing. A
+  shared final segment has no writable spare capacity, so append allocates a
+  private segment instead of changing another snapshot's logical extent.
+  `shared_bytes()` reports referenced shared capacity and `copied_bytes()` is
+  incremented by the number of payload bytes actually copied on detach.
+- The clean-scratch red compiled the adversarial probe and failed its direct
+  pointer-sharing assertion against the original deep-copy implementation.
+  Green observed 4096 shared segment bytes across three siblings and exactly
+  4096 COW-copied bytes after one sibling changed one byte; the ancestor and
+  untouched sibling retained their original byte. A same-final-token prompt
+  with a different earlier prefix received no cache match. The test emitted
+  `R01_METRIC shared_prefix_bytes=4096 cow_copied_bytes=4096`.
+- The final green took 0.779 seconds on llm-49/r4090. The bound Q8_0/FP16
+  profile (`b62135ea`), SUT (`9d045e70`) and separate oracle (`d2e6b715`) were
+  fingerprinted by the driver. The test used only the CPU native header probe;
+  it did not run the SUT, invoke the fresh oracle or compare logits. Thus it
+  provides no R01 numerical maximum and no numerical admission. G0 and all
+  four reference mutants passed. Ticket validation only; no registered gate
+  was certified, and CUDA/HIP/SYCL builds remain queued under X01.
+- Early R01 scratch attempts were kept as evidence: the first probe used a
+  nonexistent templated cache type and failed to compile; the next red was a
+  valid pointer assertion, but an initial green exposed a stale segment
+  accessor, then a too-short prefix fixture. The driver refused another red
+  after `IMPLEMENTED` because that test edit changed the ticket fingerprint.
+  No ledger was reset: the corrected test was run red-first in a new owned
+  scratch cloned from validated C03, then implemented and validated there.
+- Final R01 run directories and hash-chained ledger snapshot are preserved at
+  `evidence/runs/luna/remote/R01-20261012/`. The source edit changes native
+  headers, so full backend builds and their dependent reviews are still
+  outstanding.
+
+## October 12 UTC: R02 published-tail isolation
+
+- Changed host segments into immutable payload views. `freeze()` marks every
+  segment in a captured snapshot immutable, even when its reference count is
+  one. A later mutable visit splits the view around the write range and copies
+  only the bytes being changed; the published prefix and suffix retain their
+  original payload. Snapshot capture freezes K, V, scale and pooled buffers
+  only after all transfers succeed and immediately before publishing the image.
+- The test was written first and red failed with an `AssertionError` because
+  the original buffer had no publication/freeze operation. Green recorded
+  `R02_METRIC immutable_unique_copy=17 private_tail_copy=23`: a 17-byte write
+  to a unique frozen payload copied 17 bytes, and a 23-byte write to a fork
+  copied 23 bytes while the parent's prior value stayed unchanged. Green took
+  0.581 seconds; G0 and the four reference mutants passed.
+- Driver bindings checked the Q8_0/FP16 profile (`b62135ea`), pinned SUT
+  (`9d045e70`) and separately linked fresh oracle (`d2e6b715`), but this CPU
+  probe did not load either binary, call the oracle or compare logits. It did
+  not execute the original exhaustive G3-003 sweep, physical CUDA page audits,
+  quantization metadata isolation or GDN/PLE/frontier integration assertions.
+  Those registered assertions were not edited or weakened. Ticket validation
+  does not certify G3, and native CUDA/HIP/SYCL builds remain outstanding.
+- Red/green/regression run directories and the append-only ledger snapshot are
+  preserved at `evidence/runs/luna/remote/R02-20261012/`.
+
+## October 12 UTC: R03 unique host-storage accounting
+
+- Changed `ConversationCache` byte admission to count a shared segment payload
+  once across parked snapshots and retained reuse buffers. Each buffer
+  directory and each snapshot's independent metadata remain charged. `put`
+  calculates the candidate's additional unique allocation bytes against the
+  current cache; eviction and clear update the measured total by removing
+  owners, not by subtracting a guessed per-entry payload estimate.
+- Added direct storage metrics that enumerate payload allocation identities,
+  capacities and live `shared_ptr` owner counts, and report the existing
+  byte-copy counter. The native probe first failed because two entries were
+  charged for the same 4096-byte payload. Green measured 4644 total bytes for
+  both snapshots, two owners / one allocation, then one owner after eviction,
+  then zero bytes and owners after clear. Green took 0.913 seconds; G0 and four
+  reference mutants passed.
+- The probe did not measure process RAM, induce OS pressure/OOM, exercise RAM
+  or disk restoration, load the model or make a numerical comparison. The
+  driver checked the Q8_0/FP16 profile, pinned SUT and separate oracle
+  fingerprints, but the CPU test did not call them. The registered G2-013 and
+  G3-008/009/012/014/015 cases remain unexecuted; no gate was certified.
+  Existing `conversation_memory.cpp` OS telemetry was left intact because it
+  samples available RAM and cannot establish allocation identity for shared
+  host segments.
+- R03 run directories and its hash-chained ledger snapshot are preserved at
+  `evidence/runs/luna/remote/R03-20261012/`.
+- A post-review failure-atomicity change reserves the segment-view directory
+  before erasing/replacing a published view, so an allocation failure leaves
+  the old layout intact. Its first probe rerun exposed an invalid `self`
+  receiver in the non-template method and failed to compile; that run is under
+  `R03-20261012/post-reserve-retry/`. The corrected green took 0.886 seconds,
+  and G0/mutants passed again. The final driver check is current with the new
+  source fingerprint; `events-final.jsonl` preserves this later ledger state.
