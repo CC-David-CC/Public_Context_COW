@@ -682,3 +682,7 @@ Seeded generator emits append/fork/reseed/generate/rewind/checkpoint/evict/evalu
 ### Q02 independent logical oracle substep (2026-10-12)
 
 Added a test-only graph model using tuples/dictionaries/work lists, without Store/backend imports: sibling token histories, immutable node mapping, branch revisions, idempotent receipts, pins/releases and ancestor reachability. Executed assertion red then green on Windows; both Q02 CPU tests also pass on llm-60. Removing receipt roots from the isolated reference model was detected. Real operation interpreter/numerical campaign still pending; zero registered sequences executed. Evidence: `state-machine-logical-oracle.json`.
+
+### Q02 real interpreter written (2026-10-12)
+
+Added actual BranchingModel/FreshOracle operation execution with independent graph comparisons, per-boundary logits, immutable-byte checks, branch/receipt checks, isolated evaluation, checkpoint/evict/release/GC, and persisted operation/error/counter reports. Singleton-support generation checks exact token and draw frontier; reseed checks key/cursor. Missing interpreter assertion red executed; implementation is syntax-checked only and real green remains pending frozen profile. Campaign/failure reduction orchestration and registered >=1000 method are not complete. Evidence: `state-machine-real-interpreter.json`.

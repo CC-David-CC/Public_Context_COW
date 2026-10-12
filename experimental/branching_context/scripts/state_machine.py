@@ -1,9 +1,14 @@
 """Reproducible action programs and failure-signature-preserving reduction.
 
-These helpers do not execute inference or qualify a gate. The real runner must
-provide the operation interpreter, independent history model and fresh oracle.
+run_program uses the pinned real backend and a separate fresh-process oracle.
+Helper tests alone do not execute inference or qualify a gate.
 """
 import random
+import hashlib
+import json
+from pathlib import Path
+import struct
+import time
 
 
 OPERATIONS = ('append', 'fork', 'reseed', 'generate', 'rewind', 'checkpoint',
@@ -141,3 +146,146 @@ def minimize(program, reproduce):
             break
         partitions = min(len(candidate), partitions*2)
     return candidate
+
+
+class ProgramFailure(AssertionError):
+    pass
+
+
+def run_program(profile, directory, program, *, seed):
+    """Execute real operations and save measurements; never substitute a backend."""
+    from context_time_travel.real import BranchingModel, FreshOracle
+    from context_time_travel.numerics import compare_logits
+    from context_time_travel.store import NotFound
+    from context_time_travel.evaluation import evaluate
+
+    if profile.get('calibration_status') != 'FROZEN':
+        raise ValueError('Frozen numerical profile required')
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    report = dict(schema=1, seed=seed, program=program, status='RUNNING', completed_operations=0,
+                  executed_operations=[], boundaries=[], max_absolute_error=0.0,
+                  model_contract_id=profile['model_contract_id'],
+                  execution_profile_id=profile['execution_profile_id'])
+    model = LogicalHistory()
+    aliases, immutable = {}, {}
+    backend = oracle = sut = None
+    started = time.monotonic()
+
+    def require(condition, signature):
+        if not condition: raise ProgramFailure(signature)
+
+    def remember(identity, parent, inputs):
+        model.add(identity, parent, inputs)
+        immutable.setdefault(identity, sut.snapshot_bytes(identity))
+
+    def check(identity):
+        history = model.history(identity)
+        require(sut.history(identity) == history, 'canonical-history')
+        require(sut.consumed(identity) == len(history), 'consumed-frontier')
+        actual, expected = sut.next_logits(identity), oracle.forward(history)
+        result = compare_logits(actual, expected, atol=profile['atol'], rtol=profile['rtol'])
+        report['max_absolute_error'] = max(report['max_absolute_error'], result.max_absolute_error)
+        report['boundaries'].append(dict(snapshot=identity, tokens=list(history),
+                                         max_absolute_error=result.max_absolute_error))
+        if not result.pass_elementwise or not result.top1_stable_within_tolerance:
+            for name, values in [('actual', actual), ('expected', expected)]:
+                (directory/(name+'.f32')).write_bytes(struct.pack('<'+str(len(values))+'f', *values))
+            raise ProgramFailure('next-logits')
+        for retained in model.nodes:
+            require(sut.snapshot_bytes(retained) == immutable[retained], 'snapshot-mutated')
+        for name, (tip, revision) in model.heads.items():
+            head = sut.store.head(name)
+            require((head.tip, head.revision) == (tip, revision), 'branch-reference')
+
+    try:
+        backend = BranchingModel.load_backend(profile)
+        oracle = FreshOracle(profile)
+        sut = BranchingModel(directory/'store', backend, profile)
+        prefix = tuple(profile['fixtures']['prefix'])
+        root = sut.create(prefix)
+        remember(root, None, prefix)
+        aliases['root'] = root
+        sut.store.fork('main', root); model.fork('main', root)
+        check(root)
+        for index, row in enumerate(program):
+            report['current_operation'] = index
+            if row['source'] not in aliases or row['out'] in aliases or row['op'] not in OPERATIONS:
+                raise ValueError('Invalid program dependency or operation')
+            source = aliases[row['source']]
+            if source not in model.nodes:
+                try: sut.store.get_snapshot(source)
+                except NotFound: pass
+                else: raise ProgramFailure('collected-snapshot-resurrected')
+                aliases[row['out']] = source
+                report.setdefault('collected_source_checks', 0)
+                report['collected_source_checks'] += 1
+                report['completed_operations'] += 1
+                continue
+            op, token, output = row['op'], row['token'], source
+            if op == 'append':
+                output = sut.feed(source, [token]); remember(output, source, [token])
+            elif op in ('generate', 'reseed'):
+                stream = 'program-'+str(row['seed'])
+                scope = sut.start_generation(source, dict(allowed=[token]), stream)
+                remember(scope, source, []); check(scope)
+                if op == 'reseed':
+                    output = sut.set_random_stream(scope, stream+'-reset')
+                    remember(output, scope, [])
+                    state = sut.controller(output)
+                    require(state['next_draw'] == 0 and state['stream_key'] == hashlib.sha256((stream+'-reset').encode()).hexdigest(), 'reseed-state')
+                else:
+                    generated = sut.generate(scope, 1)
+                    require(generated.accepted_tokens == (token,), 'forced-generation')
+                    output = generated.snapshot_id; remember(output, scope, [token])
+                    state = sut.controller(output)
+                    require(state['next_draw'] == 1 and state['accepted_in_scope'] == 1, 'generation-draw-frontier')
+            elif op == 'fork':
+                sut.store.fork(row['out'], source); model.fork(row['out'], source)
+            elif op in ('rewind', 'retry'):
+                target = root if op == 'rewind' else source
+                revision = model.heads['main'][1]
+                operation = row['out']+'-move'
+                expected = model.move('main', revision, target, operation)
+                actual = sut.store.move('main', revision, target, operation)
+                require((actual.tip, actual.revision) == expected, 'move-receipt')
+                if op == 'retry':
+                    require(sut.store.move('main', revision, target, operation) == actual, 'retry-receipt')
+                output = target
+            elif op == 'checkpoint': sut.checkpoint(source)
+            elif op == 'evict': sut.evict_all()
+            elif op == 'release':
+                sut.store.release_history(source); model.release(source)
+            elif op == 'gc':
+                expected = model.collect(root)
+                require(set(sut.store.collect_history(root)['deleted']) == expected, 'collection-reachability')
+                output = root
+            elif op == 'evaluate':
+                code = "result={'mandatory':{'valid':'PASS'},'score':len(candidate['tokens']),'unresolved':[]}"
+                spec = dict(task_root=root, evaluator=dict(name='length', version='1', source=code),
+                            fixtures={}, metric=dict(name='length', order='maximize'), seed=row['seed'],
+                            mandatory=['valid'], timeout_seconds=5)
+                value = evaluate(sut.store, source, spec)
+                require(value['outcomes']['mandatory'] == {'valid':'PASS'} and
+                        value['outcomes']['score'] == len(model.history(source)), 'evaluation-result')
+                model.protect(row['out'], source)
+            aliases[row['out']] = output
+            check(output)
+            report['executed_operations'].append(op)
+            report['completed_operations'] += 1
+        report['status'] = 'PASS'
+    except Exception as error:
+        report['status'] = 'FAIL'
+        report['failure'] = dict(type=type(error).__name__, signature=str(error))
+    finally:
+        report['seconds'] = time.monotonic()-started
+        if oracle is not None:
+            report.update(oracle_requests=oracle.requests, oracle_tokens_computed=oracle.tokens_computed)
+            oracle.close()
+        if backend is not None:
+            report['backend_counters'] = dict(backend.stats)
+            try:
+                if sut is not None: sut.evict_all()
+            finally: backend.close()
+        (directory/'report.json').write_text(json.dumps(report, indent=2)+'\n')
+    return report
