@@ -14,6 +14,38 @@ import time
 from .store import InvalidOperation, _id, _json_bytes, _decode
 
 
+def evaluate(store, snapshot_id, specification):
+    """Score a retained snapshot and publish a separate immutable report."""
+    _fields(specification, 'task_root evaluator fixtures metric seed mandatory timeout_seconds',
+            'execution specification')
+    evaluator = specification['evaluator']
+    _fields(evaluator, 'name version source', 'implementation')
+    _text(evaluator['source'])
+    snapshot = store.get_snapshot(snapshot_id)
+    _, tokens = store.lineage(snapshot_id)
+    task_root = _id(specification['task_root'])
+    cursor = snapshot_id
+    while cursor != task_root:
+        cursor = store.get_snapshot(cursor)['parent']
+        if cursor is None:
+            raise InvalidOperation('Evaluation task root must be an ancestor of its candidate')
+    # This is a detached observation of the existing canonical snapshot, not a
+    # second stored history representation. Only JSON reaches the worker.
+    candidate = dict(snapshot_id=snapshot_id, model_contract_id=snapshot['model_contract_id'],
+                     tokens=tokens, controller=snapshot['controller'])
+    measured = evaluate_read_only(candidate, evaluator['source'], fixtures=specification['fixtures'],
+                                  seed=specification['seed'], mandatory=specification['mandatory'],
+                                  timeout_seconds=specification['timeout_seconds'])
+    record = validate_record(dict(kind='evaluation', schema=1, snapshot_id=snapshot_id,
+        task_root=task_root, evaluator=dict(name=evaluator['name'], version=evaluator['version'],
+        source_sha256=measured['source_sha256']), fixtures=measured['fixture_sha256'],
+        metric=specification['metric'], seed=measured['seed'], environment=measured['environment'],
+        effect_policy=measured['effect_policy'], outcomes=measured['outcomes'],
+        resources=measured['resources'], artifacts={}))
+    identity = store.put_evaluation(record)
+    return store.get_evaluation(identity)
+
+
 def evaluate_read_only(candidate, source, *, fixtures, seed, mandatory, timeout_seconds):
     """Run Python scoring in a disposable Linux namespace with no host store mounts.
 
@@ -104,6 +136,9 @@ def evaluate_read_only(candidate, source, *, fixtures, seed, mandatory, timeout_
                     seed=seed, effect_policy={'mode': 'isolated', 'implementation': 'bubblewrap',
                                              'network': 'unshared', 'host_store': 'unmounted'},
                     environment={'python': '/usr/bin/python3', 'platform': sys.platform,
+                                 'python_sha256': hashlib.sha256(Path('/usr/bin/python3').read_bytes()).hexdigest(),
+                                 'worker_sha256': hashlib.sha256((path/'worker.py').read_bytes()).hexdigest(),
+                                 'bubblewrap_sha256': hashlib.sha256(Path(command[0]).read_bytes()).hexdigest(),
                                  'resource_scope': 'wait4 evaluator process including waited children'},
                     resources=dict(wall_seconds=time.monotonic()-started,
                                    cpu_seconds=usage.ru_utime+usage.ru_stime,

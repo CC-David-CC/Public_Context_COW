@@ -602,3 +602,7 @@ Two real-backend supporting unittest methods passed, zero failures/skips: ordina
 ## 2026-10-12 E02 isolated evaluation prework
 
 Executed deterministic E02 red assertion on llm-49, then passed the unchanged test with a Linux bubblewrap evaluator worker. Candidate inputs recursively read-only, recorded fixture bytes provided without executing tools, host store unmounted, network namespace isolated, independent RNG seeded per evaluation. Test probes blocked host-file writes/network access and distinct ERROR/UNKNOWN/FAIL/TIMEOUT outcomes. G0 passed 51/51 and all four reference mutants were detected. See `evaluator-isolation-prework.json`. No registered G4 acceptance run or ticket VALIDATED claim; GPU/controller noninterference and report composition remain pending.
+
+## 2026-10-12 E02 report integration
+
+Isolated scoring now composes into the existing immutable evaluation record and persists through Store.put_evaluation. Executed assertion red then unchanged green for report/snapshot identity, source/fixture/runtime fingerprints, reopen, foreign task-root rejection, unchanged controller/history/branch reference. Both E02 CPU tests passed, G0 51/51, mutants 4/4. Four registered G4 methods (003/004/005/010) are written but unexecuted pending frozen calibration. No gate PASS or queue VALIDATED claim. Evidence: `evaluator-record-composition.json`.
