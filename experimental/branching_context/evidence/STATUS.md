@@ -475,3 +475,31 @@ fixtures, comparisons, failed control, work counts and fingerprints.
 
 After these diagnostic changes, Linux G0 passed 51/51 and all four reference
 mutants were detected. Log hashes are included in the short-prefill evidence.
+
+## Ordinary token-step control implemented, 2026-10-12
+
+N02-STEP passed its unchanged regression after the recorded exit-2 red.
+The separate CUDA diagnostic target `strata-step` uses ordinary generate-path
+verifier initialization and expert dispatch, then consumes the requested
+history with T=1 run/commit calls. It does not link the branch or fresh driver
+(symbol audit executed). It adds no production serving option.
+
+Eight real forwards at lengths 1,2,3,4 produced four exact comparisons against
+the independently linked fresh driver: maximum absolute error 0.0, 20 total
+consumed tokens, matching expert counters and position frontiers. The two-token
+ordinary control and fresh driver each executed 10 resident and 950 CPU expert
+entries. Green took 31.49 seconds, with one test and no failures/skips. G0
+passed 51/51 and four reference mutants were detected.
+
+Both CUDA targets built. The rebuilt ordinary `strata` binary is byte-identical
+to the preserved normal binary (SHA256
+`e5a575d5a7c96a14a7365b6e1ac6bf8e35ef8832b9c9424a1871585a9dc6414d`).
+The diagnostic binary SHA256 is
+`7b65ed5e0da33bfc055a75ec266e1d256120dcf7c84c2f2d12ded304840989e3`.
+See [ordinary-step-validation.json](ordinary-step-validation.json) for the
+source/build/model identities, executed runs and measurements.
+
+The missing ordinary token-only comparison primitive now exists. N02's prefill
+mismatch remains unresolved; direct state-buffer comparison after the first
+token is still missing. No batched-equivalence, memory-benefit or G1-G5 PASS
+claim follows. HIP/SYCL were not built; the new target is CUDA-only.

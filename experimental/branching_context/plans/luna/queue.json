@@ -2893,6 +2893,106 @@
       "completion": "Execute ordinary no-prefill and fresh controls for short histories; retain all logits and direct work counts."
     },
     {
+      "id": "N02-STEP",
+      "title": "Add ordinary-initialized forced-token diagnostic control",
+      "kind": "implementation",
+      "enabled": true,
+      "depends_on": [
+        "N02-SHORT"
+      ],
+      "files": [
+        "src/program/generate.cpp",
+        "CMakeLists.txt",
+        "experimental/branching_context/tests/implementation/test_n02_step.py"
+      ],
+      "invariant": "Ordinary verifier initialization consumes fixed tokens one at a time and agrees with separate fresh driver; no prefill-parity claim.",
+      "registered_cases": [],
+      "registered_assertions": [],
+      "commands": [
+        {
+          "id": "red",
+          "phase": "red",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_step.py"
+          },
+          "expected_ids": [
+            "test_n02_step_consumes_forced_history"
+          ],
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "step"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_STEP_EXECUTABLE": "{step}"
+          },
+          "platform": "posix"
+        },
+        {
+          "id": "green",
+          "phase": "green",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_n02_step.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "step"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_STEP_EXECUTABLE": "{step}"
+          },
+          "platform": "posix",
+          "expected_ids": [
+            "test_n02_step_consumes_forced_history"
+          ]
+        },
+        {
+          "id": "G0",
+          "phase": "regression",
+          "kind": "gate",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/verify.py",
+            "--gate",
+            "G0"
+          ],
+          "platform": "posix"
+        },
+        {
+          "id": "mutants",
+          "phase": "regression",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/mutation_smoke.py"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 7200,
+      "red_instruction": "Write a deterministic adversarial test named test_n02_invariant. It must fail by AssertionError on the current implementation; missing imports do not qualify. Preserve this test through green.",
+      "completion": "Executed red assertion; unchanged assertions pass after the smallest fix; required checks pass on this source/binary/model/profile; measured artifacts attached. Ticket only, never gate PASS."
+    },
+    {
       "id": "N02",
       "title": "Correct or explicitly block batched-prefill semantics",
       "kind": "implementation",

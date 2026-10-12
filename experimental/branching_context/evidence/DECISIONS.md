@@ -381,3 +381,17 @@
   follow-up; the observed rejection does not prove the underlying cause.
 - N02 is explicitly blocked at this boundary. Independent evaluation,
   persistence and hardening work can proceed; full serving parity cannot.
+
+## 2026-10-12: ordinary initialization as an independent diagnostic control
+
+- Add an EXCLUDE_FROM_ALL CUDA diagnostic target, using the ordinary verifier
+  construction and expert-plan wiring already in generate.cpp. The private
+  fresh/branch startup paths are not used. Preserve their pinned binaries.
+- The diagnostic supplies forced tokens to T=1 run/commit calls and reports
+  actual consumed work, positions and expert entries. This bypasses optimized
+  prefill only in the diagnostic executable; it does not qualify prefill.
+- Compare all logits at every short consumed prefix before examining internal
+  buffers. The exact control results distinguish the previously suspected
+  multi-token driver initialization issue from the observed prefill-path error.
+- Verify default isolation by rebuilding ordinary strata and hashing both
+  binaries: they are byte-identical, stronger than a source-only assertion.

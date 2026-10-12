@@ -2894,9 +2894,19 @@ int main(int argc, char** argv) {
         }
     }
     strata::core::NativeEmbed native_embed;
+#ifdef STRATA_STEP_DRIVER
+    // Diagnostic executable only: ordinary initialization, forced T=1 history.
+    constexpr bool ordinary_step_control = true;
+    if (!native_pack || o.serve || o.prefill_chunk != 0 || !o.mtp.empty()) {
+        std::fprintf(stderr, "strata step: requires native pack, --prefill 0, no serve or MTP\n");
+        return 2;
+    }
+#else
+    constexpr bool ordinary_step_control = false;
+#endif
     if (native_pack) {
         if (o.native_preset.empty() || o.spec < 2 || o.keep_canonical ||
-            (o.prefill_chunk <= 0 && o.tokens.size() > 1)) {
+            (o.prefill_chunk <= 0 && o.tokens.size() > 1 && !ordinary_step_control)) {
             std::fprintf(stderr, "strata generate: %s is a native (IQ) pack: it needs --native SHARD1, --spec T (T >= 2) "
                                  "and --prefill CHUNK\n", o.pack.c_str());
             return 2;
@@ -12855,6 +12865,44 @@ int main(int argc, char** argv) {
         drive.d.pcie_num = (int) (o.pcie_frac * 256.0 + 0.5);
         if (drive.d.pcie_num < 0) drive.d.pcie_num = 0;
         if (drive.d.pcie_num > 256) drive.d.pcie_num = 256;
+#ifdef STRATA_STEP_DRIVER
+        // Use this ordinary path's initialized verifier and expert dispatcher.
+        // No branch/fresh driver, retained checkpoint or sampled continuation.
+        const char* step_output = std::getenv("STRATA_DUMP_FIRST_LOGITS");
+        if (spec_pos != 0 || o.tokens.empty() || step_output == nullptr) {
+            std::fprintf(stderr, "strata step: requires empty initial state, full tokens and logits output\n");
+            return 2;
+        }
+        ver.set_head_sampling(false);
+        int64_t consumed = 0;
+        for (int64_t token : o.tokens) {
+            if (token < 0 || token >= ver.vocab()) return 2;
+            const int32_t input = (int32_t) token;
+            int32_t unused = 0;
+            drive.d.failed = false;
+            if (!ver.run(1, &input, consumed, &drive_pool_multi, &drive, &unused, err) ||
+                drive.d.failed || !ver.commit(1, err)) {
+                std::fprintf(stderr, "strata step: consumed %lld: %s\n", (long long) consumed, err.c_str());
+                return 1;
+            }
+            ++consumed;
+        }
+        if (ver.completed_forward_tokens != (uint64_t) consumed) return 1;
+        std::vector<float> step_logits((size_t) ver.vocab());
+        if (!ver.copy_logits(0, step_logits.data())) return 1;
+        for (float value : step_logits) if (!std::isfinite(value)) return 1;
+        std::ofstream step_file(step_output, std::ios::binary | std::ios::trunc);
+        step_file.write((const char*) step_logits.data(), (std::streamsize) step_logits.size() * sizeof(float));
+        step_file.close();
+        if (!step_file) return 1;
+        std::printf("{\"consumed\":%lld,\"position_max\":%lld,\"forward_tokens\":%llu,"
+                    "\"windows\":%llu,\"resident_expert_entries\":%lld,\"cpu_expert_entries\":%lld}\n",
+                    (long long) consumed, (long long) consumed - 1,
+                    (unsigned long long) ver.completed_forward_tokens, (unsigned long long) ver.windows,
+                    (long long) drive.d.cache_hits, (long long) drive.d.cache_refused);
+        drive.d.plan = nullptr;
+        return 0;
+#endif
         const int64_t pcie0 = drive.d.pcie_experts;
         // CS-T: the file tier since the decode began (the prompt path's copies are before this)
         const int64_t files0 = src.file_reads(), ram0 = src.ram_reads();
