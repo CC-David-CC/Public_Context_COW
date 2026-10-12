@@ -319,3 +319,14 @@
   forwards at every consumed boundary.
 - Prioritize one request at a time, as explicitly requested by the user. This
   is local API scheduling, not ordinary serving or concurrent-kernel validation.
+
+## 2026-10-12: cancellation releases pending work only
+
+- Remove a pending job by object identity under the FIFO lock. A repeated
+  cancellation returns false. An active job retains its execution owner.
+- Check the captured branch revision before numerical work and adopt only
+  after the complete job. Failed publication may leave durable immutable
+  orphan boundaries; it cannot advance the movable branch reference.
+- Keep the assertion-red test byte-identical. Additional cache-pressure
+  coverage lives in a separate regression module; the harness correctly
+  refused a changed red-test module before that separation.

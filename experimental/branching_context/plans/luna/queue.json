@@ -2266,7 +2266,9 @@
       "files": [
         "src/program/generate.cpp",
         "src/core/branch_session.cpp",
-        "experimental/branching_context/tests/implementation/test_s02.py"
+        "experimental/branching_context/tests/implementation/test_s02.py",
+        "experimental/branching_context/src/context_time_travel/slots.py",
+        "experimental/branching_context/tests/implementation/test_s02_pressure.py"
       ],
       "invariant": "Cancellation at each consumed frontier, stale CAS, slot reassignment and pressure must preserve parent/sibling bytes and receipts; only owned resources release. All-checkpoints-evicted cold replay works.",
       "registered_cases": [
@@ -2321,6 +2323,16 @@
           },
           "expected_ids": [
             "test_s02_invariant"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}"
+          },
+          "platform": "posix",
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest"
           ]
         },
         {
@@ -2368,6 +2380,27 @@
             "{python}",
             "scripts/mutation_smoke.py"
           ],
+          "platform": "posix"
+        },
+        {
+          "id": "pressure",
+          "phase": "regression",
+          "kind": "unittest",
+          "required": true,
+          "timeout_seconds": 1800,
+          "tests": {
+            "directory": "tests/implementation",
+            "pattern": "test_s02_pressure.py"
+          },
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}"
+          },
           "platform": "posix"
         }
       ],

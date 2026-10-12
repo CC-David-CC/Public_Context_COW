@@ -344,3 +344,26 @@ executed IDs and backend/build/model artifact fingerprints. Raw archive SHA256
 The user confirmed serialized execution is the first prototype priority.
 Ordinary serving integration, long contexts and profile qualification remain
 unexecuted; no G1-G5 PASS is claimed. Next: cancellation and slot reuse.
+
+## S02 cancellation and recovery component, 2026-10-12
+
+`test_s02_invariant` passed on llm-49/r4090 after its recorded assertion red.
+Queued cancellation releases only the identified pending job without token
+consumption. Slot reassignment then succeeds. Stale revisions reject before
+GPU work, preserve retry receipts, and clear queue activity. Injected interruption
+before the second snapshot publication leaves the branch on the original
+generation-ready history with its original RNG cursor; later work succeeds.
+Complete hot/RAM/disk checkpoint eviction replays the nine-token root and leaves
+root and sibling canonical bytes unchanged. Five fresh forwards were exact
+(maximum error 0.0; 48 oracle tokens), zero green failures/errors/skips.
+G0 passed 51/51; all four reference mutants were detected.
+[slot-recovery-validation.json](slot-recovery-validation.json) contains executed
+reports, retained red and numerical measurements. Real cache-admission pressure also passed: ten distinct retained histories
+forced the eight-entry cache to evict numerical states. At measurement it
+held 954,990,752 capacity-accounted bytes and 2,506,752 KV payload bytes
+across 288 allocations. The oldest history replayed nine tokens and matched
+its fresh oracle exactly. These counters are not process RSS. Final green,
+G0 and mutation runs passed; S02 is VALIDATED for the recorded local API
+component scope. Every-frontier process kills, GPU OOM and randomized
+concurrent interleaving remain outstanding acceptance qualification. The
+publication injection is not a process-kill or GPU OOM measurement.

@@ -67,6 +67,17 @@ class BranchSlots:
             self.pending.append(task)
             return task
 
+    def cancel(self, task):
+        """Remove only this queued job; active execution retains its owner."""
+        with self.lock:
+            if task is self.active:
+                raise InvalidOperation('Cannot release an active execution job')
+            for index, queued in enumerate(self.pending):
+                if queued is task:
+                    del self.pending[index]
+                    return True
+            return False
+
     def run_next(self):
         with self.lock:
             if self.active is not None:
