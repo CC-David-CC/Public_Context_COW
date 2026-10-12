@@ -330,3 +330,13 @@
 - Keep the assertion-red test byte-identical. Additional cache-pressure
   coverage lives in a separate regression module; the harness correctly
   refused a changed red-test module before that separation.
+
+## 2026-10-12: compare execution operators before numerical admission
+
+- Preserve the original rejected normal-batch fixture and all new full vectors.
+  A diagnostic PASS proves the measurements ran; it does not admit equivalence.
+- Include a one-token control. Its nonzero discrepancy eliminates batched
+  prefix processing as the sole cause and directs investigation to ordinary
+  verifier initialization and expert placement.
+- Keep the separate pinned token-level oracle and existing tolerances unchanged.
+  Do not reinterpret unchanged top-1 predictions as matching logits.

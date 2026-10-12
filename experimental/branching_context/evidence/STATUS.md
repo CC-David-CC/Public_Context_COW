@@ -367,3 +367,27 @@ G0 and mutation runs passed; S02 is VALIDATED for the recorded local API
 component scope. Every-frontier process kills, GPU OOM and randomized
 concurrent interleaving remain outstanding acceptance qualification. The
 publication injection is not a process-kill or GPU OOM measurement.
+
+## Fresh normal-prefill diagnosis, 2026-10-12
+
+N01's diagnostic test passed after its recorded red. Eight new processes
+measured the historical 127-token counterexample and a one-token control on
+llm-49/r4090, Q8_0 weights / FP16 KV. Actual counters report the complete
+history: normal prefill consumed n-1 tokens and the final verifier consumed
+one; the independent token-level oracle consumed n tokens from an empty
+session. All 248,320 logits per forward are retained.
+
+The current normal chunk-1 vs chunk-128 error at length 127 is
+1.3281426429748535; chunk-31 vs chunk-128 is 1.259131669998169.
+Normal vs token-level maximum error is 2.688899040222168. Even the one-token
+control differs by 1.1226537227630615, with no batched-prefix work. Top-1
+matched in these six comparisons. These are absolute logit errors, not
+percentages. The historical 1.5612177848815918 counterexample is preserved.
+
+G0 passed 51/51 and four reference mutants were detected. No tolerance was
+fitted or admitted. N01 validates diagnosis only; normal batched equivalence
+remains unresolved. Source inspection identifies differing expert-dispatch
+initialization as a hypothesis for the one-token discrepancy, not yet a
+measured cause. [normal-prefill-validation.json](normal-prefill-validation.json)
+records full-vector hashes, work counters, binaries and model fingerprints.
+Raw archive SHA256: `189e983b183b1ed156c87c8f1d9eaa1595a204622d5a4547ba120ad6f52cdc67`.

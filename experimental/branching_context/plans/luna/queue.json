@@ -2420,7 +2420,8 @@
         "src/prefill/prefill.cpp",
         "src/core/verify.cpp",
         "experimental/branching_context/scripts/calibrate_strata_operator.py",
-        "experimental/branching_context/tests/implementation/test_n01.py"
+        "experimental/branching_context/tests/implementation/test_n01.py",
+        "experimental/branching_context/scripts/measure_prefill_paths.py"
       ],
       "invariant": "Keep the prior 1.5612177848815918 discrepancy as a fixture. Compare fixed history and positions through fresh normal-batch vs fresh token-level operators before branch tests. Preserve full vectors and profiles; no tolerance fitted to failing branches.",
       "registered_cases": [
@@ -2468,6 +2469,20 @@
           },
           "expected_ids": [
             "test_n01_invariant"
+          ],
+          "env": {
+            "CTT_PROFILE": "{profile}",
+            "CTT_NORMAL_EXECUTABLE": "{normal}",
+            "CTT_REJECTED_BASELINE": "{rejected_baseline}"
+          },
+          "platform": "posix",
+          "requires_artifacts": [
+            "profile",
+            "sut",
+            "oracle",
+            "model_manifest",
+            "normal",
+            "rejected_baseline"
           ]
         },
         {
@@ -2484,10 +2499,14 @@
             "profile",
             "sut",
             "oracle",
-            "model_manifest"
+            "model_manifest",
+            "normal",
+            "rejected_baseline"
           ],
           "env": {
-            "CTT_PROFILE": "{profile}"
+            "CTT_PROFILE": "{profile}",
+            "CTT_NORMAL_EXECUTABLE": "{normal}",
+            "CTT_REJECTED_BASELINE": "{rejected_baseline}"
           },
           "platform": "posix"
         },
