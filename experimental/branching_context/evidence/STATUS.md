@@ -626,3 +626,7 @@ Added a finalizer to the existing profile builder that preserves the pinned buil
 ## 2026-10-12 P01 authorization red
 
 Executed test_p01_invariant on llm-49: expected AssertionError because Store.for_principal is absent. Test covers unauthorized known-ID snapshot/history/fork/reference/append/evaluation access, grant escalation, root-specific read grants, grant persistence/revocation and zero snapshot payload bytes read on denied operations. Implementation remains pending; no G5 method/pass claimed. Evidence: `authorization-prework.json`.
+
+## 2026-10-12 llm-60 evaluator prerequisite resolved
+
+User explicitly authorized global protection changes on this test box. Changed only runtime kernel.apparmor_restrict_unprivileged_userns from 1 to 0; AppArmor remained enabled (Y), no reboot or calibration restart. Both unchanged E02 CPU methods passed (2 tests, zero failures/skips), including host filesystem/network isolation and immutable report composition. llm-60 is available again for evaluator-dependent G4 after its frozen baseline; earlier BLOCKED host status is superseded, original failure retained. This is a host prerequisite PASS, not G4 acceptance. Evidence: `llm60-evaluator-host-fix.json`.

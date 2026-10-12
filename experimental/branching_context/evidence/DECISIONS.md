@@ -463,3 +463,7 @@ Read only hash-checked evaluation records. Require explicit mandatory check name
 ## 2026-10-12 host-specific evaluator isolation limitation
 
 Preserve the failed llm-60 E02 test and AppArmor denial logs. Do not weaken evaluator isolation or disable host policy to convert it to PASS. llm-49 remains the available isolated-evaluation host; llm-60 remains the primary inference host. This limits G4 host qualification, not the correctness of an already measured GPU forward.
+
+## 2026-10-12 authorized llm-60 namespace policy adjustment
+
+Per explicit user authorization for the test box, applied runtime sysctl kernel.apparmor_restrict_unprivileged_userns=0. No persistent config or other global protection was changed. AppArmor remains enabled and the unchanged evaluator sandbox tests passed. Reverse with sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1. Prefer llm-60 for G4 again after baseline qualification.
