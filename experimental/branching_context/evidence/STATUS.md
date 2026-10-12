@@ -678,3 +678,7 @@ Added `docs/support-matrix.json`: one pending Q8_0/FP16/T=1/Linux/ext4/CUDA/toke
 ### Q02 generator/reducer substep (2026-10-12)
 
 Seeded generator emits append/fork/reseed/generate/rewind/checkpoint/evict/evaluate/retry/release/GC instructions referencing prior results. CPU test checks 10 reproducible 40-step programs and a dependency-sensitive reduction counterexample. Executed red then unchanged green; mutant accepting a different failure signature was caught. llm-60 G0 51/51 and reference mutants 4/4 pass. This is only the generator/reducer: real interpreter, independent logical oracle and GPU campaign remain incomplete. Zero real state-machine sequences executed; registered >=1000 requirement unchanged. Evidence: `state-machine-helper-prework.json`.
+
+### Q02 independent logical oracle substep (2026-10-12)
+
+Added a test-only graph model using tuples/dictionaries/work lists, without Store/backend imports: sibling token histories, immutable node mapping, branch revisions, idempotent receipts, pins/releases and ancestor reachability. Executed assertion red then green on Windows; both Q02 CPU tests also pass on llm-60. Removing receipt roots from the isolated reference model was detected. Real operation interpreter/numerical campaign still pending; zero registered sequences executed. Evidence: `state-machine-logical-oracle.json`.

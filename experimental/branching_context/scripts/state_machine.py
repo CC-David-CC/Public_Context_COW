@@ -10,6 +10,91 @@ OPERATIONS = ('append', 'fork', 'reseed', 'generate', 'rewind', 'checkpoint',
               'evict', 'evaluate', 'retry', 'release', 'gc')
 
 
+class LogicalHistory:
+    """Test oracle: tuples and a graph, with no Store/backend imports or files."""
+    def __init__(self):
+        self.nodes = {}
+        self.heads = {}
+        self.receipts = {}
+        self.pins = {}
+        self.released = set()
+
+    def add(self, identity, parent, tokens):
+        if parent is not None and parent not in self.nodes:
+            raise KeyError(parent)
+        node = (parent, tuple(tokens))
+        if identity in self.nodes and self.nodes[identity] != node:
+            raise ValueError('Immutable identity changed')
+        if identity == parent:
+            raise ValueError('Self-parent cycle')
+        self.nodes[identity] = node
+
+    def history(self, identity):
+        segments = []
+        while identity is not None:
+            identity, tokens = self.nodes[identity]
+            segments.append(tokens)
+        return tuple(token for segment in reversed(segments) for token in segment)
+
+    def root(self, identity):
+        while self.nodes[identity][0] is not None:
+            identity = self.nodes[identity][0]
+        return identity
+
+    def fork(self, name, identity):
+        self.nodes[identity]
+        if name in self.heads:
+            raise ValueError('Duplicate branch')
+        self.heads[name] = (identity, 0)
+        return self.heads[name]
+
+    def move(self, name, expected, identity, operation):
+        request = (name, expected, identity)
+        if operation in self.receipts:
+            previous, result = self.receipts[operation]
+            if previous != request:
+                raise ValueError('Operation payload changed')
+            return result
+        current, revision = self.heads[name]
+        if revision != expected or self.root(current) != self.root(identity):
+            raise ValueError('Stale revision or foreign root')
+        result = (identity, revision+1)
+        self.heads[name] = result
+        self.receipts[operation] = (request, result)
+        return result
+
+    def release(self, identity):
+        self.nodes[identity]
+        self.released.add(identity)
+
+    def protect(self, name, identity):
+        self.nodes[identity]
+        self.pins[name] = identity
+
+    def unprotect(self, name):
+        del self.pins[name]
+
+    def collect(self, root):
+        if self.root(root) != root:
+            raise ValueError('Collection needs a root')
+        marked = set(self.nodes)-self.released
+        marked.add(root)
+        marked.update(self.pins.values())
+        marked.update(identity for identity, revision in self.heads.values())
+        marked.update(result[0] for request, result in self.receipts.values())
+        pending = list(marked)
+        while pending:
+            parent = self.nodes[pending.pop()][0]
+            if parent is not None and parent not in marked:
+                marked.add(parent)
+                pending.append(parent)
+        deleted = {identity for identity in self.nodes if identity not in marked and self.root(identity) == root}
+        for identity in deleted:
+            del self.nodes[identity]
+        self.released.difference_update(deleted)
+        return deleted
+
+
 def make_program(seed, steps, token_ids):
     if type(seed) is not int or type(steps) is not int or steps < 0:
         raise ValueError('Integer seed and nonnegative step count required')
