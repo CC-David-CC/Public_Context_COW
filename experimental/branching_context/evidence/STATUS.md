@@ -449,3 +449,29 @@ introduces no tolerance or implementation change. See
 binary/model fingerprints, complete fixture, errors and full-vector hashes.
 Raw archive SHA256:
 `c161acb1eb491f48455d956429fbdacc9525c259175a995a62f007b56466a40f`.
+
+## Two-token prefill counterexample, 2026-10-12
+
+N02-SHORT executed 16 fresh full-history forwards and 12 full-vocabulary
+comparisons at lengths 1, 2, 3 and 4. One-token controls stayed exact. The
+smallest tested failing prefix is [100,117]: all ordinary prefill chunk
+settings (1,31,128) differ from the corrected fresh driver by
+4.67782187461853 absolute logits; top-1 is 2972 versus 9304. This is not an
+accepted tolerance. The run took 81.21 seconds and computed 40 tokens.
+
+N02-CONTROL attempted the existing ordinary --prefill 0 option. One-token
+execution matched exactly, but the native Q8 pack rejected the two-token
+ordinary request with exit 2: this path requires prefill. That failed run is
+preserved, not skipped or counted as PASS. It took 13.51 seconds.
+
+N02 and its ordinary control are BLOCKED pending a matched ordinary token-only
+control or intermediate prefill-state instrumentation. The cause is not yet
+proved. This is a backend investigation blocker, not a claim that source
+changes cannot solve it. Independent queue work remains available. No G1-G5
+PASS, baseline admission or memory measurement is claimed. The diagnostic
+length/chunk selectors change only measurement inputs, not engine semantics.
+See [short-prefill-validation.json](short-prefill-validation.json) for exact
+fixtures, comparisons, failed control, work counts and fingerprints.
+
+After these diagnostic changes, Linux G0 passed 51/51 and all four reference
+mutants were detected. Log hashes are included in the short-prefill evidence.

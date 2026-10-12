@@ -368,3 +368,16 @@
   explicitly documents BF16 versus FP32 activations for several projections
   and automatic CPU expert sharing in eligible ordinary prefill. These are
   inspected differences, not yet isolated causes of the measured error.
+
+## 2026-10-12: preserve the short prefill failure and unsupported control
+
+- Reduce the historical fixture with diagnostic-only length/chunk selectors;
+  preserve the original default matrix and all acceptance assertions.
+- Retain the two-token top-1 disagreement. Do not dismiss it as long-context
+  accumulation or use a token-level fallback to claim prefill equivalence.
+- Record ordinary native-pack no-prefill rejection as a missing comparison
+  primitive. Do not bypass its guard or add an engine flag to manufacture a
+  passing control. Intermediate state instrumentation remains a possible
+  follow-up; the observed rejection does not prove the underlying cause.
+- N02 is explicitly blocked at this boundary. Independent evaluation,
+  persistence and hardening work can proceed; full serving parity cannot.

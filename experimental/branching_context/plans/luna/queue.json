@@ -2791,6 +2791,108 @@
       "completion": "Eight executed full-history forwards, six full-vocabulary comparisons, complete vectors and measured work; preserve nonzero errors."
     },
     {
+      "id": "N02-SHORT",
+      "title": "Locate prefill divergence in the first short prefixes",
+      "kind": "observation",
+      "enabled": true,
+      "depends_on": [
+        "N02-BASELINE"
+      ],
+      "files": [
+        "experimental/branching_context/scripts/measure_prefill_paths.py"
+      ],
+      "invariant": "Record corrected oracle versus unchanged normal prefill with identical exact history and fixed placement; measurement is not equivalence or numerical admission.",
+      "commands": [
+        {
+          "id": "diagnose",
+          "phase": "observe",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/measure_prefill_paths.py",
+            "--profile",
+            "{profile}",
+            "--normal",
+            "{normal}",
+            "--historical",
+            "{rejected_baseline}",
+            "--destination",
+            "{run_dir}/short-prefill-paths",
+            "--lengths",
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "normal",
+            "rejected_baseline"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 1800,
+      "completion": "Executed short-prefix full-history forwards and retained full vectors; no equivalence or tolerance admission."
+    },
+    {
+      "id": "N02-CONTROL",
+      "title": "Compare ordinary multi-token execution with prefill disabled",
+      "kind": "observation",
+      "enabled": true,
+      "depends_on": [
+        "N02-SHORT"
+      ],
+      "files": [
+        "experimental/branching_context/scripts/measure_prefill_paths.py"
+      ],
+      "invariant": "Record corrected oracle versus unchanged normal prefill with identical exact history and fixed placement; measurement is not equivalence or numerical admission.",
+      "commands": [
+        {
+          "id": "diagnose",
+          "phase": "observe",
+          "kind": "command",
+          "required": true,
+          "timeout_seconds": 1800,
+          "argv": [
+            "{python}",
+            "scripts/measure_prefill_paths.py",
+            "--profile",
+            "{profile}",
+            "--normal",
+            "{normal}",
+            "--historical",
+            "{rejected_baseline}",
+            "--destination",
+            "{run_dir}/no-prefill-paths",
+            "--lengths",
+            "1",
+            "2",
+            "3",
+            "4",
+            "--chunks",
+            "0"
+          ],
+          "requires_artifacts": [
+            "profile",
+            "model_manifest",
+            "sut",
+            "oracle",
+            "normal",
+            "rejected_baseline"
+          ],
+          "platform": "posix"
+        }
+      ],
+      "validation_seconds": 1800,
+      "completion": "Execute ordinary no-prefill and fresh controls for short histories; retain all logits and direct work counts."
+    },
+    {
       "id": "N02",
       "title": "Correct or explicitly block batched-prefill semantics",
       "kind": "implementation",

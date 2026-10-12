@@ -22,7 +22,11 @@ def main():
     parser.add_argument('--normal',type=Path,required=True)
     parser.add_argument('--historical',type=Path,required=True)
     parser.add_argument('--destination',type=Path,required=True)
+    parser.add_argument('--lengths',type=int,nargs='+',help='Diagnostic prefix lengths; default: one token and the full retained fixture')
+    parser.add_argument('--chunks',type=int,nargs='+',default=[1,31,128],help='Ordinary prefill chunk controls; zero disables prefill')
     args=parser.parse_args()
+    if not args.chunks or len(set(args.chunks))!=len(args.chunks) or any(n<0 for n in args.chunks):
+        parser.error('Chunks must be distinct nonnegative sizes')
     destination=args.destination.resolve()
     destination.mkdir(parents=True,exist_ok=True)
     if any(destination.iterdir()): raise RuntimeError('Refusing to overwrite measured vectors')
@@ -34,6 +38,9 @@ def main():
     historical=json.loads(args.historical.read_text())
     fixture=next(row['exact_token_ids'] for row in historical['progress']['comparisons']
                  if row['max_absolute_error']==historical['max_absolute_error'])
+    lengths=args.lengths if args.lengths is not None else [1,len(fixture)]
+    if not lengths or len(set(lengths))!=len(lengths) or any(n<1 or n>len(fixture) for n in lengths):
+        raise ValueError('Lengths must be distinct positive prefixes of the retained fixture')
     report=dict(schema=1,status='RUNNING',atol=None,rtol=None,
         scope='Fresh arithmetic-path diagnosis only; no branching or numerical admission',
         profile_sha256=sha(args.profile),model_contract_id=profile['model_contract_id'],
@@ -49,12 +56,12 @@ def main():
         (destination/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     save()
     try:
-        for length in (1,len(fixture)):
+        for length in lengths:
             ids=fixture[:length]
             token_file=destination/('n'+str(length)+'.tokens')
             token_file.write_text(','.join(map(str,ids)))
             vectors={}
-            for operator,chunk in [('token',1),('normal',1),('normal',31),('normal',128)]:
+            for operator,chunk in [('token',1)]+[('normal',chunk) for chunk in args.chunks]:
                 label='n'+str(length)+'-'+operator+'-'+str(chunk)
                 logits=destination/(label+'.f32')
                 command=list(profile['execution']['oracle_command'])
