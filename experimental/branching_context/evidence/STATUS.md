@@ -646,3 +646,7 @@ Added named historical pins, branch/evaluation reachability and POSIX flock-back
 ## 2026-10-12 P04 explicit history collection prework
 
 Executed P04 red then unchanged green. History is retained by default; release_history makes an identity eligible, and owner collection sweeps only released unreachable records in the requested root. Test preserved live-head ancestors, named pins, evaluation candidates and a real child-held lease; collected the released orphan and later the released lease snapshot. Create/append/fork/lineage/evaluation publication now share a reentrant reference transaction lock with collection. G0 51/51; four P01-P04 tests; two evaluator regressions; mutants 4/4 passed. Crash/fork/append schedule tests and GPU cases remain outstanding. Evidence: `history-collection-prework.json`.
+
+## 2026-10-12 P04 process fault validation
+
+Two process-based tests passed on llm-49: eight competing fork/append-versus-collection schedules preserved valid histories; os._exit(42) after first physical unlink preserved remaining ancestry and a committed retry receipt, and a reopened collector completed cleanly. Reversing deletion order in an isolated source copy was rejected by the unchanged crash test (AssertionError), demonstrating the test detects parent-first deletion. Added G5-008/009 real GPU materialization/collection tests; unexecuted. Concurrent evaluation/rewind schedule coverage remains to expand. No gate PASS. Evidence: `history-collection-processes.json`.
