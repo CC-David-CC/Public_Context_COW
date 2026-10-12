@@ -69,8 +69,13 @@ class EvaluationRecordTests(unittest.TestCase):
                 bad = copy.deepcopy(original); bad[section][key] = invalid
                 with self.subTest(section=section,key=key), self.assertRaises(InvalidOperation):
                     store.put_evaluation(bad)
-            files = [p for p in Path(directory).rglob(identity+'.json')]
+            # Authorization metadata is derived, not a second report. Check
+            # both locations explicitly instead of conflating equal basenames.
+            files = list((Path(directory)/'evaluations').glob(identity+'.json'))
             self.assertEqual(len(files), 1)
+            access = Path(directory)/'evaluation-access'/(identity+'.json')
+            self.assertEqual(json.loads(access.read_bytes()), {'snapshot': candidate})
+            self.assertEqual(set(Path(directory).rglob(identity+'.json')), {files[0], access})
             raw = files[0].read_bytes()
             self.assertEqual(hashlib.sha256(raw).hexdigest(), identity)
             corrupted = json.loads(raw); corrupted['outcomes']['score'] = 1.0

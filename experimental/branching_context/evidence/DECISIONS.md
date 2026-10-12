@@ -495,3 +495,7 @@ Kept incompatible checkpoint loads as explicit errors. Tightened versioned manif
 ### Rollback schema refusal (2026-10-12)
 
 JSON schema versions must be integers, not values that merely compare equal in Python. In particular a Boolean legacy version must not trigger reference migration. Reject before changing reference records. Process-kill receipt recovery is measured separately from power-loss durability and from a future two-release executable rollback test.
+
+### E01 report/index regression correction (2026-10-12)
+
+A recursive basename assertion predating P01 conflated a canonical evaluation report with its derived authorization index. Kept production representation unchanged. Corrected only that CPU assertion to validate both distinct artifacts and reject additional matches; canonical report hash and corruption tests remain. This fixes an obsolete test assumption, not a numerical/backend failure. Preserved failed run and exact source overlay.

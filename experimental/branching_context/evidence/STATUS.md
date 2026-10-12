@@ -666,3 +666,7 @@ Strict manifest validation now rejects undeclared fields, unknown schema version
 ### U02 rollback and receipts prework (2026-10-12)
 
 Executed four red assertion failures for numeric/Boolean schema acceptance; strict reference marker, branch, order and legacy migration version checks now pass unchanged tests. Actual child processes exited 73 before/after branch rename; retry produces one receipt/revision, payload mismatch and stale revision reject, canonical snapshot bytes unchanged. Five collection regressions, G0 51/51 and reference mutations 4/4 pass. Registered G5-010/G5-012 written but unexecuted. Actual two-release executable rollback remains outstanding; format simulation is not that measurement. Evidence: `rollback-receipts-prework.json`.
+
+### llm-60 current CPU regression run (2026-10-12)
+
+Copied 138 hash-verified source/test files at d3d67a24 to isolated `python-validation-d3d67a24`, leaving running numerical calibration untouched. First combined run: 13 pass/1 fail, because E01 recursively counted P01 authorization index as a report. Corrected the CPU test to require one canonical report, one snapshot-only access index and no other matching files; retained hash/corruption assertions. Re-execution passed 14/14, G0 51/51 and reference mutations 4/4. Original failure and source overlay hash preserved in `llm60-current-cpu-validation.json`. No GPU gate claim.
