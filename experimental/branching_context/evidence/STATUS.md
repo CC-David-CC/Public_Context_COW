@@ -658,3 +658,7 @@ Four CPU process tests passed on llm-49: eight fork/append races, four rewind ra
 ### Registered G5-009 concurrency coverage (2026-10-12)
 
 Expanded the registered case to synchronize collection, fork, rewind and real isolated evaluation across four processes while a GPU materialization holds the candidate. It requires unchanged canonical bytes, correct revision/receipt, valid evaluation and post-concurrency fresh-oracle agreement for candidate/root. This revision is syntax-checked only, not executed: frozen calibration remains pending. CPU process evidence above is supporting evidence, not a substitute for this registered run. Manifest: `registered-collection-concurrency.json`.
+
+### U01 checkpoint compatibility prework (2026-10-12)
+
+Strict manifest validation now rejects undeclared fields, unknown schema versions, Boolean versions/sizes, mismatched contracts/profiles/positions and invalid payload identities before native deserialization. Executed assertion red then unchanged green on llm-49; isolated Boolean-version mutant caught. G0 51/51 and reference mutants 4/4 pass. G5-003 is written but unexecuted: reject incompatible saved state, explicitly evict derived checkpoints, cold replay and verify canonical IDs/controller bytes/revision plus fresh logits and work counters. No numerical conversion or gate PASS claimed. Evidence: `checkpoint-upgrade-prework.json`.

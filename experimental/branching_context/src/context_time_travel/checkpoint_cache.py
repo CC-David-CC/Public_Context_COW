@@ -2,6 +2,34 @@
 from collections import OrderedDict
 from collections.abc import MutableMapping
 import threading
+import hashlib
+
+from .store import IntegrityError, _json_bytes
+
+
+def validate_manifest(envelope, expected):
+    """Reject unknown layouts before any numerical payload is deserialized."""
+    if not isinstance(envelope, dict) or set(envelope) != {'manifest', 'checksum'}:
+        raise IntegrityError('Invalid checkpoint envelope')
+    manifest = envelope['manifest']
+    fields = {'schema', 'snapshot', 'input_identity', 'model_contract_id',
+              'execution_profile_id', 'consumed', 'positions', 'logits_count',
+              'state_bytes', 'payload_sha256'}
+    if not isinstance(manifest, dict) or set(manifest) != fields:
+        raise IntegrityError('Unknown checkpoint manifest layout')
+    if envelope['checksum'] != hashlib.sha256(_json_bytes(manifest)).hexdigest():
+        raise IntegrityError('Checkpoint manifest checksum mismatch')
+    if type(manifest['schema']) is not int or manifest['schema'] != 1:
+        raise IntegrityError('Unsupported checkpoint version')
+    for name in ('consumed', 'logits_count', 'state_bytes'):
+        if type(manifest[name]) is not int or manifest[name] < (0 if name == 'consumed' else 1):
+            raise IntegrityError('Invalid checkpoint size')
+    if any(manifest.get(key) != value for key, value in expected.items()):
+        raise IntegrityError('Checkpoint manifest incompatible')
+    digest = manifest['payload_sha256']
+    if not isinstance(digest, str) or len(digest) != 64 or any(ch not in '0123456789abcdef' for ch in digest):
+        raise IntegrityError('Invalid payload identity')
+    return manifest
 
 
 class CheckpointCache(MutableMapping):

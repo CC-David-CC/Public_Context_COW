@@ -418,19 +418,14 @@ class BranchingModel:
         return dict(manifest_path=manifest_path,payload_path=payload_path)
 
     def _load_checkpoint(self, snapshot, history):
+        from .checkpoint_cache import validate_manifest
         try:
             envelope = _decode((self.checkpoint_directory/(snapshot+'.json')).read_bytes())
-            manifest = envelope['manifest']
-            if envelope['checksum'] != hashlib.sha256(_json_bytes(manifest)).hexdigest():
-                raise IntegrityError('Checkpoint manifest checksum mismatch')
             required = dict(schema=1,snapshot=snapshot,input_identity=self._input_identity(history),
                 model_contract_id=self.profile['model_contract_id'],execution_profile_id=self.profile['execution_profile_id'],
                 consumed=len(history),positions='absolute-zero-based',logits_count=self.backend.vocab_size)
-            if any(manifest.get(k)!=v for k,v in required.items()):
-                raise IntegrityError('Checkpoint manifest incompatible')
+            manifest = validate_manifest(envelope, required)
             sha = manifest['payload_sha256']
-            if len(sha)!=64 or any(ch not in '0123456789abcdef' for ch in sha):
-                raise IntegrityError('Invalid payload identity')
             payload = (self.checkpoint_directory/(sha+'.state')).read_bytes()
             size = manifest['state_bytes']
             if type(size) is not int or size<=0 or len(payload)!=size+4*self.backend.vocab_size or hashlib.sha256(payload).hexdigest()!=sha:

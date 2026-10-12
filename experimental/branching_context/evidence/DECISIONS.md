@@ -487,3 +487,7 @@ Default history retention is preserved: unreferenced does not imply permission t
 ### Collection concurrency evidence (2026-10-12)
 
 Evaluation retention was measured at the actual public evaluate read-lease boundary using a Store subclass only to synchronize processes; scoring still executed through bubblewrap. After publication, the immutable report retained its candidate without the reader process. Rewind races accept either legal serialization and require a valid root head, revision and idempotent receipt. These bounded CPU schedules do not replace registered GPU validation.
+
+### Checkpoint upgrade boundary (2026-10-12)
+
+Kept incompatible checkpoint loads as explicit errors. Tightened versioned manifest parsing rather than inferring compatibility from tensor shapes or silently importing unknown fields. Existing explicit numerical eviction is the cold-replay route under the same model contract; canonical history and references are untouched. No format converter or automatic semantic migration is claimed. CPU checks pass; native replay qualification remains pending.
