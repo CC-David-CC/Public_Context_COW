@@ -430,3 +430,22 @@ and measurements. Raw archive SHA256:
 `fbbb697bfae7e95d28dd4b8ee2ae05a65a73fbc7d3eb235bcd12f79fe0f140d4`.
 Normal batched-prefill equivalence and numerical admission remain unresolved.
 HIP/SYCL builds were not executed; no G1-G5 gate PASS is claimed.
+
+## Corrected full-history prefill diagnosis, 2026-10-12
+
+N02-BASELINE completed eight new full-history forwards on the corrected
+execution profile. One-token ordinary-versus-fresh comparisons were exact
+for chunks 1, 31 and 128. At length 127, the respective maximum absolute
+logit errors were 1.6786870956420898, 1.6211271286010742 and
+1.595560759305954. Top-1 matched in each comparison; that does not establish
+logit equivalence. Actual counters total 512 consumed forward tokens, with
+126 prefill plus one verifier token on each ordinary 127-token forward.
+
+The observation took 266.93 seconds, with no process failures or skipped
+forwards. It executed zero registered acceptance tests. No new memory benchmark
+was collected. N02 remains unresolved, not a gate PASS; this observation
+introduces no tolerance or implementation change. See
+[corrected-prefill-validation.json](corrected-prefill-validation.json) for
+binary/model fingerprints, complete fixture, errors and full-vector hashes.
+Raw archive SHA256:
+`c161acb1eb491f48455d956429fbdacc9525c259175a995a62f007b56466a40f`.

@@ -354,3 +354,17 @@
 - Pin the existing PCIe-share option explicitly in the corrected profile, since
   an automatic placement choice should not silently change the numerical
   operator. The measured mmap fixture used no PCIe groups; do not claim it did.
+
+## 2026-10-12: remeasure prefill after correcting expert dispatch
+
+- Add observation ticket N02-BASELINE before further N02 implementation. It
+  runs the existing full-vector diagnostic unchanged, using the corrected
+  fresh executable and profile, the preserved normal binary and historical
+  counterexample. No acceptance assertions or tolerances change.
+- The dedicated bindings now bind profile, model receipt and native source to
+  the corrected build, rather than the historical profile used for the
+  controlled dispatch red. All vectors and actual forward counts are retained.
+- Ordinary prefill and token decode use different arithmetic paths: the source
+  explicitly documents BF16 versus FP32 activations for several projections
+  and automatic CPU expert sharing in eligible ordinary prefill. These are
+  inspected differences, not yet isolated causes of the measured error.
