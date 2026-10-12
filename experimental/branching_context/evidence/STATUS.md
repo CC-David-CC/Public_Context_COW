@@ -650,3 +650,7 @@ Executed P04 red then unchanged green. History is retained by default; release_h
 ## 2026-10-12 P04 process fault validation
 
 Two process-based tests passed on llm-49: eight competing fork/append-versus-collection schedules preserved valid histories; os._exit(42) after first physical unlink preserved remaining ancestry and a committed retry receipt, and a reopened collector completed cleanly. Reversing deletion order in an isolated source copy was rejected by the unchanged crash test (AssertionError), demonstrating the test detects parent-first deletion. Added G5-008/009 real GPU materialization/collection tests; unexecuted. Concurrent evaluation/rewind schedule coverage remains to expand. No gate PASS. Evidence: `history-collection-processes.json`.
+
+### P04 evaluation and rewind schedules (2026-10-12)
+
+Four CPU process tests passed on llm-49: eight fork/append races, four rewind races, collector crash recovery, and collection while public evaluate holds its actual history lease and after report publication. An isolated mutant removing the evaluator lease failed the new test. G0 passed 51/51 and reference mutation smoke caught 4/4. No native code changed. Registered GPU qualification remains pending the frozen calibration. Evidence: `history-collection-evaluation-rewind.json`.

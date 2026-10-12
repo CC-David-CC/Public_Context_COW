@@ -483,3 +483,7 @@ Use shared OS locks on snapshot-named lease files. The kernel releases an active
 ## 2026-10-12 explicit collection eligibility
 
 Default history retention is preserved: unreferenced does not imply permission to delete. release_history explicitly marks a snapshot eligible; collect_history is a separate owner administration operation. Mark branch roots/heads, retry-receipt targets, named pins, evaluation candidates/task roots, active leases and every unreleased object, then their ancestors. Delete eligible unreachable descendants before ancestors. Serialize history publication and reference moves with the same transaction lock. Numerical cache eviction never invokes history release or collection.
+
+### Collection concurrency evidence (2026-10-12)
+
+Evaluation retention was measured at the actual public evaluate read-lease boundary using a Store subclass only to synchronize processes; scoring still executed through bubblewrap. After publication, the immutable report retained its candidate without the reader process. Rewind races accept either legal serialization and require a valid root head, revision and idempotent receipt. These bounded CPU schedules do not replace registered GPU validation.
