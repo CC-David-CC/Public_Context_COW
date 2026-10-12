@@ -116,9 +116,40 @@ class StrataImage:
 
 @dataclass
 class _Lease:
+    backend: object
     bound: bool = False
     consumed: int = 0
     image_identity: bytes | None = None
+    state: str = 'NEW'
+    _owner_thread: int | None = None
+
+    def __enter__(self):
+        if self.state != 'NEW':
+            raise InvalidOperation('Execution lease cannot be entered twice')
+        self.backend._lock.acquire()
+        try:
+            if self.state != 'NEW' or self.backend._closed:
+                raise InvalidOperation('Unavailable execution lease')
+            if self.backend._active is not None:
+                raise InvalidOperation('Nested private leases are not supported')
+            self.backend._flush_drops()
+            self._owner_thread = threading.get_ident()
+            self.state = 'ACTIVE'
+            self.backend._active = self
+            self.backend.stats['lease_acquires'] += 1
+            return self
+        except BaseException:
+            self.backend._lock.release()
+            raise
+
+    def __exit__(self, exc_type, exc, traceback):
+        # Check before changing the active lease or releasing its owner's lock.
+        self.backend._check(self)
+        self.backend._active = None
+        self.state = 'CLOSED'
+        self.backend.stats['lease_releases'] += 1
+        self.backend._lock.release()
+        return False
 
 
 def _drop_image(backend_ref, handle):
@@ -245,23 +276,11 @@ class StrataBackend:
             self._refresh_stats()
 
     def _check(self, lease):
-        if self._active is not lease:
+        if self._active is not lease or lease.state != 'ACTIVE' or lease._owner_thread != threading.get_ident():
             raise InvalidOperation('Inactive or foreign private lease')
 
-    @contextmanager
     def lease(self):
-        with self._lock:
-            if self._active is not None:
-                raise InvalidOperation('Nested private leases are not supported')
-            self._flush_drops()
-            lease = _Lease()
-            self._active = lease
-            self.stats['lease_acquires'] += 1
-            try:
-                yield lease
-            finally:
-                self._active = None
-                self.stats['lease_releases'] += 1
+        return _Lease(self)
 
     def position(self, lease):
         self._check(lease)

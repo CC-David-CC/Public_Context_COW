@@ -195,6 +195,10 @@ class Generation:
 
 
 class BranchingModel:
+    def slot_queue(self, count):
+        from .slots import BranchSlots
+        return BranchSlots(self, count)
+
     @staticmethod
     def load_backend(profile):
         kind = profile.get('backend','llama.cpp')

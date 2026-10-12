@@ -307,3 +307,15 @@
   follows from those work observations.
 - Preserve tested binary copies before rebuilding. New profiles point to their
   retained SUT/oracle copies, so a subsequent build does not overwrite them.
+
+## 2026-10-12: one owned workspace and FIFO branch references
+
+- Bind execution leases to their entering thread and check ownership before
+  every operation, including release. Real CUDA regression confirmed rejected
+  foreign operations do not consume tokens or clear the active lease.
+- Use a deque of immutable jobs containing existing canonical branch heads.
+  Keep controllers in the store. Execute one job at a time and expose a result
+  after revision-checked durable adoption. Two forced futures matched fresh
+  forwards at every consumed boundary.
+- Prioritize one request at a time, as explicitly requested by the user. This
+  is local API scheduling, not ordinary serving or concurrent-kernel validation.

@@ -324,3 +324,23 @@ The latest tested SUT and oracle copies are preserved in `native-auto-primary/bi
 under the owned execution directory. The profile remains unqualified. No G1-G5
 PASS, ordinary serving parity, concurrent-kernel support, host-prefix sharing
 benefit or latency improvement is claimed. Next: S01 slot ownership/scheduling.
+
+## Serialized slots and ownership, 2026-10-12
+
+S01-OWNER and S01 passed two real-CUDA implementation tests on llm-49/r4090,
+Q8_0 weights / FP16 KV. Foreign-thread reads, writes and release attempts fail
+before changing the lease; its original owner continues and closes normally.
+The FIFO executes two canonical branch references sequentially, preserves
+independent RNG cursors, and returns only after a durable CAS branch move.
+Seven fresh-process full-history comparisons had maximum absolute error 0.0
+and 70 oracle-computed tokens. FIFO execution measured 2.0762215069844387
+seconds for two jobs; this is not an end-to-end latency benchmark. Green runs
+had zero failures, errors or skips. Linux G0 passed 51/51 and four mutants
+were detected. Assertion-red runs remain in the evidence.
+
+[serialized-slot-validation.json](serialized-slot-validation.json) records
+executed IDs and backend/build/model artifact fingerprints. Raw archive SHA256
+`c76ce63086385e0253dbde9965c9ae4d2b47d49bf8254bc10b87bae523cd735d`.
+The user confirmed serialized execution is the first prototype priority.
+Ordinary serving integration, long contexts and profile qualification remain
+unexecuted; no G1-G5 PASS is claimed. Next: cancellation and slot reuse.
