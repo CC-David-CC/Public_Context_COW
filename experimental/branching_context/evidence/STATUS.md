@@ -1,5 +1,33 @@
 # Branching-context implementation handoff status
 
+## Current package: Context COW v0.1.0, October 13
+
+The current bounded CUDA result is documented in
+[RESULTS.md](../../../docs/context-cow/RESULTS.md), with raw reports, build/model
+fingerprints and four reproducible figures. The older handoff below is retained
+as historical evidence and is not the current release status.
+
+- All-pool verification is implemented at code checkpoint `c053ddbb`. Resident
+  A preparation fell from 1.6610 to 0.1908 seconds over 128 consumed outputs,
+  with identical sealed-byte coverage. Native COW measured 43.48–47.37 TPS;
+  the same run's RAM control measured 51.63 TPS.
+- Four real-model lanes passed 516 exact full-logit comparisons, maximum error
+  0.0. Separate RAM A/B/A passed 387 comparisons. Every request produced 128
+  outputs after an 8,192-token root and a 512-token suffix.
+- New preparation fixture: 546 checks passed across four KV layouts; CUDA
+  memcheck reported zero errors. Six targeted native CTests, three independent
+  digest unittest methods, G0's 51 tests and four reference mutants passed.
+- G1 remains unqualified/paused; no cumulative G0+G1 PASS was obtained. G2–G5
+  are not newly certified. Arbitrary prefill splits and ordinary-serving token
+  repeatability remain open. No long soak was started by this experiment.
+- Publication includes source, all runner families, measured results and
+  failures. Public source is based on Strata; compatible upstream contributions
+  are intended future work, not an upstream-acceptance claim.
+
+The new prepared-writable-window proposal is still a next step. v0.1.0 reserves
+integrity scratch ahead of decode and batches fresh verification across pools;
+it does not reuse stale successful hashes or skip integrity checks.
+
 The Luna handoff harness is implemented on local branch
 `feat/branching-completion`, based on publication commit `6dd5f9df`. The queue
 contains 34 tickets, including a disabled exhaustive-certification ticket.

@@ -1,5 +1,30 @@
 # Recorded implementation decisions
 
+## 2026-10-13: measured preparation optimization and experimental publication
+
+The separate native timers located the COW penalty in preparation, not model
+computation: 1.6610 seconds of preparation versus 0.0118 for the RAM A control,
+over 128 outputs. A linear all-pool address list with GPU scratch reserved at
+binding reduced preparation to 0.1908 seconds. Every sealed byte is still
+SHA-256 checked before the write; the request hashed 33,193,721,856 bytes before
+and after. Corrupt later pools are checked before any tail is detached.
+
+The new test first failed 51 of 546 checks on the prior code, then passed all
+546 on real CUDA in FP16, INT8, Q4 and hybrid layouts. Its sanitizer reported
+zero errors. The four-lane 8K model run retained 516 exact comparisons and
+unchanged parent/checkpoint hashes. The code checkpoint is `c053ddbb`.
+
+Publish the package as Context COW v0.1.0 (experimental), preserving Strata
+ancestry and license, with planned compatible upstream contributions. Keep
+COW central and RAM as a control/fallback. Publish failed and partial results
+with successful measurements; keep native TPS distinct from the complete
+durable API clock. Do not claim G1–G5 certification or arbitrary-split parity.
+
+See [the current results](../../../docs/context-cow/RESULTS.md) and
+[the measured priorities](../../../docs/context-cow/ROADMAP.md). A prepared
+writable window is future work and must invalidate on ownership/state changes;
+stored hashes alone do not justify trusting later GPU contents.
+
 ## October 12 UTC: Luna development harness
 
 - Created local `feat/branching-completion` from `6dd5f9df`, preserving the
