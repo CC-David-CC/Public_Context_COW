@@ -242,14 +242,19 @@ THINK_TAGS = {"<think>": "\U000F0E01", "</think>": "\U000F0E02"}
 # the same special ids, so text with <|vision_start|><|image_pad|> before a picture took that picture's embeddings
 VISION_TAGS = {"<|vision_start|>": "\U000F0E03", "<|image_pad|>": "\U000F0E04", "<|vision_end|>": "\U000F0E05",
                "<|video_pad|>": "\U000F0E06"}
-LITERAL_TAGS = {**THINK_TAGS, **VISION_TAGS}
+# Tool wrappers also affect templates that inspect a user's content to decide
+# whether it is a new query. Hide literal wrappers during rendering even when
+# a model encodes them as ordinary text. Template-written wrappers stay intact.
+TOOL_LITERAL_TAGS = {"</tool_call>": "\U000F0E07", "</tool_response>": "\U000F0E08",
+                     "<tool_response>": "\U000F0E09", "<tool_call>": "\U000F0E0A"}
+LITERAL_TAGS = {**THINK_TAGS, **VISION_TAGS, **TOOL_LITERAL_TAGS}
 THINK_MARKS = {v: k for k, v in LITERAL_TAGS.items()}
 CONTROL_MARK0 = 0xF0E10      # the control tokens' marks start here, clear of the two sets above
 
 
 def literal_tags(controls) -> dict[str, str]:
-    """LITERAL_TAGS plus a mark for each control token's text (`controls`: the tokenizer's CONTROL literals,
-    <|im_start|>, <|im_end|>, <|endoftext|>, ...).  The rendered prompt is encoded with those literals parsed, so one
+    """LITERAL_TAGS plus a mark for each tokenizer special's text (`controls`: CONTROL and USER_DEFINED literals,
+    <|im_start|>, <|im_end|>, <|endoftext|>, tool markers, ...). The rendered prompt parses these literals, so one
     written inside a message - a file an agent reads, a pasted chat template - opened or ended a turn there.  Longest
     first, as the tokenizer matches them: a literal inside a longer one is not marked before it."""
     tags = {**LITERAL_TAGS, **{c: chr(CONTROL_MARK0 + k) for k, c in enumerate(c for c in controls
@@ -267,7 +272,7 @@ def _mark_deep(v, tags: dict[str, str] = LITERAL_TAGS):
     if isinstance(v, str):
         return _mark(v, tags)
     if isinstance(v, dict):
-        return {k: _mark_deep(x, tags) for k, x in v.items()}
+        return {_mark(k, tags) if isinstance(k, str) else k: _mark_deep(x, tags) for k, x in v.items()}
     if isinstance(v, list):
         return [_mark_deep(x, tags) for x in v]
     return v
@@ -277,10 +282,39 @@ def _has_tag(v, tags: dict[str, str] = LITERAL_TAGS) -> bool:
     if isinstance(v, str):
         return any(tag in v for tag in tags)
     if isinstance(v, dict):
-        return any(_has_tag(x, tags) for x in v.values())
+        return any(_has_tag(k, tags) or _has_tag(x, tags) for k, x in v.items())
     if isinstance(v, list):
         return any(_has_tag(x, tags) for x in v)
     return False
+
+
+def literal_tags_for_data(tags: dict[str, str], messages, tools, template_source: str) -> dict[str, str]:
+    """Keep literal private-use characters from being mistaken for our markers.
+
+    The ordinary path reuses the fixed mapping. Only colliding input needs a
+    fresh mapping, shared by marking and unmarking that one prompt.
+    """
+    if not _has_tag(messages, tags) and not _has_tag(tools, tags):
+        return tags
+    marks = {mark: tag for tag, mark in tags.items()}
+    if not (_has_tag(messages, marks) or _has_tag(tools, marks) or _has_tag(template_source, marks)):
+        return tags
+    used = set(template_source)
+    stack = [messages, tools]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, str):
+            used.update(value)
+        elif isinstance(value, dict):
+            stack.extend(value.keys())
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    available = (chr(i) for i in range(0xF1000, 0xFFFFE) if chr(i) not in used)
+    try:
+        return {tag: next(available) for tag in tags}
+    except StopIteration:
+        raise ValueError('message exhausts the private literal-marker range') from None
 
 
 def mark_think_literals(messages: list[dict], tools: list[dict] | None, tags: dict[str, str] = LITERAL_TAGS):
