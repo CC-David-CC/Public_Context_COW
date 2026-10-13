@@ -4852,6 +4852,7 @@ def make_handler(svc: Service):
                     if path=='/workspace/chats':return self._json(200,{'chats':svc.workspace.list_chats(query.get('archived')==['true'])})
                     if path=='/workspace/branches':return self._json(200,{'branches':svc.workspace.list_branches(query.get('chat',[''])[0])})
                     if path=='/workspace/history':return self._json(200,svc.workspace.history(query.get('branch',[''])[0]))
+                    if path=='/workspace/graph':return self._json(200,svc.workspace.graph(query.get('chat',[''])[0],query.get('previous')==['true']))
                     return self._json(404,{'error':{'message':'Not found'}})
                 except ValueError as e:return self._json(404,{'error':{'message':str(e)}})
             if path.startswith("/fonts/"):

@@ -62,6 +62,12 @@
           <label for="restore-point" class="small">Saved points</label><select class="st-input" id="restore-point"><option value="">Choose a point</option></select>
           <button type="button" class="st-btn st-btn--secondary" id="restore-point-btn">Restore point</button>
         </div>
+      <details id="branch-viewer" class="branch-viewer" open hidden>
+        <summary>Paths <span id="graph-summary"></span></summary>
+        <div class="graph-tools"><label><input type="checkbox" id="graph-previous"> Show previous tips</label><span id="graph-status" role="status"></span><button class="st-btn st-btn--secondary" id="graph-refresh" type="button" hidden>Refresh paths</button></div>
+        <div id="graph-scroll" class="graph-scroll" tabindex="0" aria-label="Chat paths"><div id="graph-canvas" class="graph-canvas"></div></div>
+        <section id="graph-inspector" class="graph-inspector" aria-label="Saved message preview" hidden></section>
+      </details>
     <div class="chat-scroll" id="chat-scroll">
       <div class="chat" id="chat">
         <div class="chat-empty" id="chat-empty">
@@ -283,6 +289,7 @@
 <script src="web/math-mathjax.js"></script>
 <script src="web/math-adapter.js"></script>
 <script src="web/workspace.js"></script>
+<script src="web/workspace-graph.js"></script>
 <script src="web/app.js"></script>
 </body>
 </html>

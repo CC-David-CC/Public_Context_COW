@@ -164,7 +164,87 @@ class ChatWorkspace:
 
     def list_chats(self,include_archived=False):
         with self.connection() as db:
-            return [dict(r) for r in db.execute('SELECT * FROM chats '+('' if include_archived else 'WHERE archived=0 ')+'ORDER BY created_at DESC,id')]
+            db.execute('BEGIN')
+            chats=[dict(r) for r in db.execute('SELECT * FROM chats '+('' if include_archived else 'WHERE archived=0 ')+'ORDER BY created_at DESC,id')]
+            branches=self._graph_branches(db)
+            nodes,_,_=self._graph_nodes(db,branches,previews=False)
+            groups={}
+            for branch in branches:groups.setdefault(branch['chat_id'],[]).append(branch)
+            shared={}
+            for node in nodes.values():
+                count=node['current_branch_count']
+                if count:shared.setdefault((node['_root'],count),0);shared[(node['_root'],count)]=max(shared[(node['_root'],count)],node['depth'])
+            for chat in chats:
+                group=groups.get(chat['id'],[])
+                chat['branch_count']=len(group)
+                chat['max_saved_messages']=max((nodes[b['tip']]['depth'] for b in group),default=0)
+                chat['shared_prefix_messages']=shared.get((nodes[group[0]['tip']]['_root'],len(group)),0) if len(group)>1 else 0
+            return chats
+
+    def _graph_branches(self,db,chat=None):
+        sql='''SELECT b.*,h.tip,h.revision,r.id AS pending_request FROM branches b
+               JOIN branch_heads h ON h.branch_id=b.id
+               LEFT JOIN requests r ON r.branch_id=b.id AND r.status='pending' '''
+        return [dict(r) for r in db.execute(sql+('WHERE b.chat_id=? ' if chat else '')+'ORDER BY b.created_at,b.id',(chat,) if chat else ())]
+
+    def _graph_nodes(self,db,branches,chat=None,include_previous=False,previews=True):
+        """One ancestor-union query, then iterative linear tree accounting."""
+        condition='WHERE b.chat_id=?' if chat else ''
+        seeds='SELECT h.tip FROM branch_heads h JOIN branches b ON b.id=h.branch_id '+condition
+        params=(chat,) if chat else ()
+        if include_previous:
+            seeds+=' UNION SELECT m.from_node FROM branch_moves m JOIN branches b ON b.id=m.branch_id '+condition
+            params+=((chat,) if chat else ())
+        fields=",m.role,substr(m.text,1,160) AS preview" if previews else ''
+        join=' LEFT JOIN messages m ON m.id=n.message_id' if previews else ''
+        rows=db.execute('''WITH RECURSIVE reachable(id) AS ('''+seeds+'''
+            UNION SELECT n.parent_id FROM history_nodes n JOIN reachable r ON n.id=r.id WHERE n.parent_id IS NOT NULL)
+            SELECT n.id,n.parent_id'''+fields+' FROM reachable r JOIN history_nodes n ON n.id=r.id'+join,params)
+        nodes={r['id']:{**dict(r),'current_branch_count':0} for r in rows}
+        children={node:[] for node in nodes};ordered=[]
+        for node in nodes.values():
+            if node['parent_id'] is None:
+                node['depth']=0;node['_root']=node['id'];ordered.append(node['id'])
+            elif node['parent_id'] in children:children[node['parent_id']].append(node['id'])
+            else:raise ValueError('History parent missing')
+        # Breadth-first iteration handles long histories without Python recursion.
+        for node_id in ordered:
+            node=nodes[node_id]
+            for child_id in children[node_id]:
+                child=nodes[child_id];child['depth']=node['depth']+1;child['_root']=node['_root'];ordered.append(child_id)
+        if len(ordered)!=len(nodes):raise ValueError('History cycle')
+        for branch in branches:
+            if branch['tip'] not in nodes:raise ValueError('History tip missing')
+            nodes[branch['tip']]['current_branch_count']+=1
+        for node_id in reversed(ordered):
+            node=nodes[node_id]
+            if node['parent_id']:nodes[node['parent_id']]['current_branch_count']+=node['current_branch_count']
+        return nodes,children,ordered
+
+    def graph(self,chat,include_previous=False):
+        with self.connection() as db:
+            db.execute('BEGIN')  # Heads, counts, previews and request indicators share one WAL snapshot.
+            root=db.execute('SELECT node_id FROM chat_roots WHERE chat_id=?',(chat,)).fetchone()
+            if root is None:raise WorkspaceNotFound('Chat not found')
+            root=root[0];branches=self._graph_branches(db,chat)
+            nodes,children,ordered=self._graph_nodes(db,branches,chat,include_previous)
+            if any(n['_root']!=root for n in nodes.values()):raise ValueError('History belongs to another chat')
+            for branch in branches:branch['saved_messages']=nodes[branch['tip']]['depth']
+            previous=[]
+            if include_previous:
+                # Only abandoned terminal paths need previous-tip badges, not every old append.
+                terminal={n for n in ordered if not nodes[n]['current_branch_count'] and not children[n]}
+                seen=set()
+                for row in db.execute('''SELECT m.branch_id,m.from_node,m.revision FROM branch_moves m
+                    JOIN branches b ON b.id=m.branch_id WHERE b.chat_id=? ORDER BY m.revision DESC,m.branch_id''',(chat,)):
+                    key=(row['branch_id'],row['from_node'])
+                    if row['from_node'] in terminal and key not in seen:
+                        seen.add(key);previous.append({'branch_id':row['branch_id'],'node_id':row['from_node'],'revision':row['revision']})
+            common=max((n['depth'] for n in nodes.values() if n['current_branch_count']==len(branches)),default=0) if len(branches)>1 else 0
+            return {'chat_id':chat,'root_id':root,'branches':branches,
+                'nodes':[{k:v for k,v in nodes[node].items() if k!='_root'} for node in ordered],
+                'shared_prefix_messages':common,'previous_tips':previous,
+                'execution_mode':'ordinary-serving-history-replay','native_cow_connected':False}
 
     def list_branches(self,chat):
         with self.connection() as db:

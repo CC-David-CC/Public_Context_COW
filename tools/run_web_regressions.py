@@ -17,6 +17,12 @@ class Evidence(unittest.TextTestResult):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ids = []
+        self.measurements = {}
+
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        if hasattr(test, 'measurements'):
+            self.measurements[test.id()] = test.measurements
 
 
 def main():
@@ -30,6 +36,7 @@ def main():
     report = {'status': 'PASS' if result.wasSuccessful() and not result.skipped else 'FAIL',
               'seconds': time.perf_counter()-start, 'executed_ids': result.ids,
               'executed_methods': result.testsRun,
+              'measurements': result.measurements,
               'failures': [(t.id(), e) for t, e in result.failures],
               'errors': [(t.id(), e) for t, e in result.errors],
               'skips': [(t.id(), e) for t, e in result.skipped]}

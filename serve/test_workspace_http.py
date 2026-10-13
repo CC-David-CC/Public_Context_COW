@@ -91,3 +91,28 @@ class WorkspaceHTTP(unittest.TestCase):
         self.assertEqual(first,second)
         history=self.call('/workspace/history?branch='+first['branch']['id'])[1]
         self.assertEqual(len(history['messages']),2)
+
+    def test_graph_is_authorized_and_missing_chat_is_404(self):
+        branch=self.create();self.service.api_key='test-key'
+        path='/workspace/graph?chat='+branch['chat_id']
+        self.assertEqual(self.call(path)[0],401)
+        headers={'Authorization':'Bearer test-key'}
+        code,graph=self.call(path,headers=headers)
+        self.assertEqual(code,200);self.assertEqual(graph['branches'][0]['saved_messages'],0)
+        self.assertEqual(self.call('/workspace/graph?chat=missing',headers=headers)[0],404)
+
+    def test_graph_and_chat_summary_follow_fork_and_rewind(self):
+        branch=self.create();self.generate(branch,'P','p')
+        history=self.call('/workspace/history?branch='+branch['id'])[1]
+        fork=self.call('/workspace/branches/fork',{'branch_id':branch['id'],'node_id':history['tip'],'name':'B','operation_id':'fork'})[1]
+        self.generate(fork,'B suffix','b')
+        graph=self.call('/workspace/graph?chat='+branch['chat_id'])[1]
+        self.assertEqual(graph['shared_prefix_messages'],2)
+        summary=self.call('/workspace/chats')[1]['chats'][0]
+        self.assertEqual((summary['branch_count'],summary['max_saved_messages'],summary['shared_prefix_messages']),(2,4,2))
+        head=self.call('/workspace/history?branch='+fork['id'])[1]
+        self.call('/workspace/branches/rewind',{'branch_id':fork['id'],'revision':head['revision'],'node_id':history['tip'],'operation_id':'rewind'})
+        active=self.call('/workspace/graph?chat='+branch['chat_id'])[1]
+        old=self.call('/workspace/graph?chat='+branch['chat_id']+'&previous=true')[1]
+        self.assertNotIn(head['tip'],{n['id'] for n in active['nodes']})
+        self.assertIn(head['tip'],{p['node_id'] for p in old['previous_tips']})

@@ -772,6 +772,7 @@ function assistantMessages(m) {
 }
 
 function setBusy(on) {
+  ContextGraph.setBusy(on);
   $("stop-btn").hidden = !on;
   $("send-btn").disabled = on;
   $("composer-hint").textContent = on ? "" : "Shift+Enter: new line";

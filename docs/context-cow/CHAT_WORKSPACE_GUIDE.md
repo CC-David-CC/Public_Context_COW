@@ -43,6 +43,46 @@ You can fork from a user message or an answer. Wait for an answer to finish firs
 
 ![The pizza question and answer belong to the pizza branch](results/chat-workspace-20261013/03-live-pizza.jpg)
 
+## See where the paths split
+
+The **Paths** box stays above the messages. Click its heading to hide or show it.
+The app remembers that choice.
+
+![Three paths with a shared beginning and a second shared section](results/branch-viewer-20261013/browser-release/chromium-three-paths.png)
+
+This example uses saved test messages about fractions:
+
+- All three paths share the first **two messages**.
+- **Main** and **Pizza** share another **two messages**. **Pictures** takes a different path earlier.
+- Main and Pizza each have **six saved messages**. Pictures has **four**.
+- The green outline marks the path you have open.
+
+One question and one answer count as **two messages**. These numbers do not count
+model tokens. The line lengths do not show elapsed time.
+
+1. Click a branch name in the graph to open that path.
+2. Click a dot or a message-count label to see a short preview.
+3. Use the splitting arrow in the preview to fork there. Use the curled arrow to rewind there.
+4. Close the preview with its **×** button.
+
+Looking at a preview does not change the chat. Fork and rewind act when you click
+their arrow buttons. Long sections show ten previews at a time. Use **Next** or
+**Previous** to see more.
+
+Text and attachments you have not sent stay with their branch when you switch
+paths in this browser tab. These drafts are held in memory. Send them before you
+reload or close the tab if you want them saved on the server.
+
+Check **Show previous tips** after a rewind or clear. A faded path shows a saved
+ending that is no longer current. Click its badge to preview it; use the curled
+arrow in that preview to return the selected branch to that saved point.
+
+![A previous Pizza ending remains available after rewind](results/branch-viewer-20261013/browser-release/chromium-previous-tip.png)
+
+If you see **Refresh paths**, click it before editing the branch. Another tab
+may have changed the saved history, or the network may have failed. Your draft
+stays in the message box. A failed stale edit does not move the branch.
+
 ## Go back, clear, or hide
 
 - **Rewind here** returns the selected branch to that message. It acts immediately.
@@ -107,4 +147,4 @@ These are the same controls you learned above, with the words hidden:
 Hold the pointer over an icon to check its name. The browser's keyboard and
 screen-reader labels are also available when the visible words are hidden.
 
-![Compact COW interface with fork and rewind icons](results/direct-branch-controls-20261013/live-controls.jpg)
+![Compact COW interface with the live 4K history graph](results/branch-viewer-20261013/live-4k.jpg)

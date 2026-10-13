@@ -1,7 +1,7 @@
 // The server owns durable history. Browser messages are a rendering projection.
 "use strict";
 const ContextWorkspace = {
-  enabled:false,current:null,chats:[],branches:[],loading:false,
+  enabled:false,current:null,chats:[],branches:[],loading:false,drafts:new Map(),selectionEpoch:0,
   icons:{
     fork:'<path d="M7 19V5m0 7c0-5 10-1 10-7"/><path d="m14 7 3-3 3 3"/><circle cx="7" cy="20" r="2"/><circle cx="7" cy="4" r="2"/>',
     rewind:'<path d="M4 10a8 8 0 1 1 1 9M4 4v6h6"/>',
@@ -39,6 +39,7 @@ const ContextWorkspace = {
     try {
       this.chats=(await this.request('chats')).chats;
       this.enabled=true;
+      ContextGraph.init();
       for(const id of ['workspace-sidebar','workspace-controls','workspace-state'])$(id).hidden=false;
       $('new-btn').onclick=()=>this.create();
       $('branch-select').onchange=()=>this.select($('branch-select').value).catch(e=>this.error(e));
@@ -81,12 +82,15 @@ const ContextWorkspace = {
     dialog.showModal();if(value!==null){$('workspace-name').focus();$('workspace-name').select();}
   },
   async refreshList() {
-    this.chats=(await this.request('chats'+($('show-archived').checked?'?archived=true':''))).chats;
+    const epoch=this.listEpoch=(this.listEpoch || 0)+1;
+    const chats=(await this.request('chats'+($('show-archived').checked?'?archived=true':''))).chats;
+    if(epoch!==this.listEpoch)return;
+    this.chats=chats;
     const list=$('chat-list');list.replaceChildren();
     for(const chat of this.chats) {
       const button=document.createElement('button');button.type='button';button.className='workspace-chat';button.setAttribute('aria-current',String(this.current?.chat_id===chat.id));
       const title=document.createElement('strong');title.textContent=chat.title;button.append(title);
-      const subtitle=document.createElement('small');subtitle.textContent=chat.archived?'Archived · click to open':new Date(chat.created_at*1000).toLocaleDateString();button.append(subtitle);
+      const subtitle=document.createElement('small');subtitle.textContent=`${chat.branch_count} ${chat.branch_count===1?'branch':'branches'} · ${chat.max_saved_messages} messages${chat.archived?' · Archived':''}`;button.append(subtitle);
       button.onclick=()=>this.openChat(chat.id).catch(e=>this.error(e));
       const row=document.createElement('div');row.className='workspace-chat-row';row.append(button);
       const archive=document.createElement('button');archive.type='button';archive.className='st-btn workspace-chat-archive';archive.dataset.archiveChat=chat.id;
@@ -97,20 +101,35 @@ const ContextWorkspace = {
   },
   async openChat(chat) {
     if(busy)throw Error('Wait for the answer before switching chats.');
-    this.branches=(await this.request('branches?chat='+encodeURIComponent(chat))).branches;
-    if(!this.branches.length)throw Error('This chat has no retained branch.');
-    await this.select(this.branches[0].id);
+    if(this.moving)throw Error('Wait for the branch change before switching chats.');
+    const epoch=++this.selectionEpoch;
+    const branches=(await this.request('branches?chat='+encodeURIComponent(chat))).branches;
+    if(epoch!==this.selectionEpoch)return;
+    if(!branches.length)throw Error('This chat has no retained branch.');
+    await this.select(branches[0].id);
+  },
+  saveDraft() {
+    if(this.current)this.drafts.set(this.current.id,{text:$('input').value,attachments:structuredClone(attachments)});
   },
   async select(branch) {
     if(busy)throw Error('Wait for the answer before switching branches.');
+    const epoch=++this.selectionEpoch;
+    this.saveDraft();
     const history=await this.request('history?branch='+encodeURIComponent(branch));
-    this.current=history;messages=history.messages;attachments=[];renderAttachments();renderChat();
+    if(epoch!==this.selectionEpoch)return;
+    const [branchList,catalogData]=await Promise.all([
+      this.request('branches?chat='+encodeURIComponent(history.chat_id)),this.request('chats?archived=true')]);
+    if(epoch!==this.selectionEpoch)return;
+    this.saveDraft();
+    this.current=history;messages=history.messages;
+    const draft=this.drafts.get(branch);$('input').value=draft?.text || '';attachments=structuredClone(draft?.attachments || []);
+    autosize();renderAttachments();renderChat();
     store.set('workspace.branch',branch);
-    this.branches=(await this.request('branches?chat='+encodeURIComponent(history.chat_id))).branches;
+    this.branches=branchList.branches;
     const selector=$('branch-select');selector.replaceChildren();
     for(const b of this.branches){const option=document.createElement('option');option.value=b.id;option.textContent=b.name;selector.append(option);}selector.value=branch;
     // Include archived metadata without forcing the archived list open.
-    const catalog=(await this.request('chats?archived=true')).chats;
+    const catalog=catalogData.chats;
     const chat=catalog.find(c=>c.id===history.chat_id);$('workspace-title').textContent=chat?.title || 'Chat';
     $('workspace-save-state').textContent=history.pending_request?'Answer in progress in another tab':`${messages.length} saved messages · replay mode`;
     $('workspace-save-state').title='Serving receives the selected history and may reuse its prompt/conversation checkpoints. Native GPU COW handles are not connected to this interface yet.';
@@ -118,6 +137,8 @@ const ContextWorkspace = {
     const added=new Set();
     for(const move of history.moves){if(added.has(move.from_node))continue;added.add(move.from_node);const option=document.createElement('option');option.value=move.from_node;option.textContent='Before change '+move.revision;points.append(option);}
     await this.refreshList();
+    if(epoch!==this.selectionEpoch)return;
+    await ContextGraph.refresh();
   },
   async makeChat(title) {
     const chat=await this.request('chats/create',{title,operation_id:this.operation()});await this.select(chat.branch.id);
@@ -127,13 +148,22 @@ const ContextWorkspace = {
     if(busy){toast('info','Wait for this answer','Stop or finish it before changing branches.');return;}
     if(this.moving)return;
     this.moving=true;
+    ContextGraph.disableActions();
     const controls=['branch-select','clear-branch-btn','restore-point','restore-point-btn'].map($);
     controls.forEach(control=>control.disabled=true);
-    try {await action();} catch(e){this.error(e);} finally {this.moving=false;controls.forEach(control=>control.disabled=false);}
+    try {
+      if(ContextGraph.stale)throw Error('Refresh paths before changing this branch.');
+      await action();
+    } catch(e){
+      if(e.status===409 && this.current){try {await this.select(this.current.id);} catch(refreshError){ContextGraph.failed(refreshError);}}
+      this.error(e);
+    } finally {this.moving=false;controls.forEach(control=>control.disabled=false);ContextGraph.disableActions();}
   },
   fork(node) {
     return this.direct(async()=>{
-      const name=`Alternative ${this.branches.length}`;
+      const names=new Set(this.branches.map(b=>b.name));let number=1;
+      while(names.has(`Alternative ${number}`))number++;
+      const name=`Alternative ${number}`;
       const branch=await this.request('branches/fork',{branch_id:this.current.id,node_id:node,name,operation_id:this.operation()});await this.select(branch.id);
       toast('info','Branch created',name);
     });
@@ -156,6 +186,7 @@ const ContextWorkspace = {
   async archive(chat) {
     if(busy)throw Error('Wait for the answer before archiving a chat.');
     await this.request('chats/archive',{chat_id:chat.id,archived:!chat.archived});await this.refreshList();
+    if(chat.id===this.current?.chat_id)await ContextGraph.refresh();
     toast('info',chat.archived?'Chat restored':'Chat archived','Its saved messages remain in SQLite.');
   },
   messageActions(message) {
