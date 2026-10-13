@@ -2800,6 +2800,7 @@ class Service:
         if specials is None:
             specials = (*getattr(tokenizer, "control_tokens", ()), *getattr(tokenizer, "ALWAYS", ()))
         self.literals = literal_tags(specials)
+        self.workspace = None
         self.fit_max_tokens = fit_max_tokens          # --fit-max-tokens: clamp the output cap instead of 400
         self.aliases: list[str] = []                  # #297: other names of the model (the config's `aliases`)
         self.reasoning_close_retry = False            # #1053 (opt-in): close the thinking once when a reply ends inside it
@@ -4843,6 +4844,16 @@ def make_handler(svc: Service):
 
         def do_GET(self):
             path = self.path.split("?")[0].rstrip("/")
+            if path.startswith('/workspace'):
+                if not self._authorized():return
+                if svc.workspace is None:return self._json(404,{'error':{'message':'Chat workspace not configured'}})
+                try:
+                    query=parse_qs(urlsplit(self.path).query)
+                    if path=='/workspace/chats':return self._json(200,{'chats':svc.workspace.list_chats(query.get('archived')==['true'])})
+                    if path=='/workspace/branches':return self._json(200,{'branches':svc.workspace.list_branches(query.get('chat',[''])[0])})
+                    if path=='/workspace/history':return self._json(200,svc.workspace.history(query.get('branch',[''])[0]))
+                    return self._json(404,{'error':{'message':'Not found'}})
+                except ValueError as e:return self._json(404,{'error':{'message':str(e)}})
             if path.startswith("/fonts/"):
                 # the web app's font (Outfit, OFL: serve/web/fonts); the page falls back to the system font
                 name = path[len("/fonts/"):]
@@ -5052,6 +5063,9 @@ def make_handler(svc: Service):
                 req = json.loads(self._body() or b"{}")
                 if not isinstance(req, dict):
                     raise ValueError("send a JSON object")
+                if path.startswith('/workspace/'):
+                    if not self._own_page('chat history can be changed'):return
+                    return self._workspace_post(path,req)
                 if path.startswith("/v1/responses/"):        # retrieve/delete/cancel/compact: nothing is stored
                     self._json(404, responses_error_body("this server keeps no responses (stateless); send the "
                                                          "whole conversation to POST /v1/responses", code="not_found"))
@@ -5117,6 +5131,10 @@ def make_handler(svc: Service):
                 self._json(503, responses_error_body(str(e), "server_error") if path == "/v1/responses"
                            else {"error": {"type": "server_error", "message": str(e)}})
             except ValueError as e:
+                from serve.chat_workspace import WorkspaceConflict,WorkspaceNotFound
+                if isinstance(e,(WorkspaceConflict,WorkspaceNotFound)):
+                    self._json(409 if isinstance(e,WorkspaceConflict) else 404,{'error':{'message':str(e)}})
+                    return
                 print(f"[strata] 400 invalid request: {e}", flush=True)
                 if path == "/v1/responses":
                     self._json(400, responses_error_body(str(e)))
@@ -5159,6 +5177,42 @@ def make_handler(svc: Service):
                         record["finished_at"] = time.time()
                         record["state"] = "error" if record.get("error") else record.get("outcome", "completed")
                     svc.request_trace.record = None
+
+        def _workspace_post(self,path,req):
+            from serve.workspace_messages import Answer,model_messages
+            from serve.chat_workspace import WorkspaceConflict
+            workspace=svc.workspace
+            if workspace is None:return self._json(404,{'error':{'message':'Chat workspace not configured'}})
+            op=req.get('operation_id');branch=req.get('branch_id');revision=req.get('revision')
+            if path=='/workspace/chats/create':return self._json(200,workspace.create_chat(req.get('title'),op))
+            if path=='/workspace/chats/rename':workspace.rename_chat(req.get('chat_id'),req.get('title'));return self._json(200,{'saved':True})
+            if path=='/workspace/chats/archive':workspace.archive_chat(req.get('chat_id'),req.get('archived'));return self._json(200,{'saved':True})
+            if path=='/workspace/branches/rename':workspace.rename_branch(branch,req.get('name'));return self._json(200,{'saved':True})
+            if path=='/workspace/branches/fork':return self._json(200,workspace.fork(branch,req.get('node_id'),req.get('name'),op))
+            if path=='/workspace/branches/rewind':return self._json(200,workspace.rewind(branch,revision,req.get('node_id'),op))
+            if path=='/workspace/branches/clear':return self._json(200,workspace.clear(branch,revision,op))
+            if path=='/workspace/import':
+                messages=req.get('messages')
+                if not isinstance(messages,list) or len(messages)>10000:raise ValueError('Import requires a bounded message list')
+                chat=workspace.create_chat(req.get('title','Imported browser chat'),op)
+                head=chat['branch']
+                for index,message in enumerate(messages):
+                    # Deterministic child receipts make a disconnected import resumable.
+                    head=workspace.append(head['id'],index,message,op+'-'+str(index))
+                return self._json(200,{**chat,'branch':head})
+            if path=='/workspace/generate':
+                message=req.get('message')
+                if not isinstance(message,dict) or message.get('role')!='user':raise ValueError('Send a user message')
+                sampling={k:v for k,v in req.items() if k not in ('message','messages','branch_id','revision','operation_id','model')}
+                job=workspace.claim(branch,revision,message,sampling,op)
+                if job.get('replayed'):raise WorkspaceConflict('This request was already accepted; reload the branch')
+                self.workspace_job=op;self.workspace_answer=Answer()
+                api={**sampling,'messages':model_messages(workspace.history(branch)['messages']),'model':svc.model}
+                self.record=svc.begin_request('/workspace/generate',api)
+                try:return self._openai(api)
+                finally:
+                    if workspace.request(op)['status']=='pending':workspace.finish(op,None,'failed')
+            return self._json(404,{'error':{'message':'Not found'}})
 
         def _props(self):
             model = parse_qs(urlsplit(self.path).query).get("model", [svc.model])[0]
@@ -5398,6 +5452,9 @@ def make_handler(svc: Service):
             if validator is not None:
                 chunks = structured_chunks(chunks, validator)
             chunks = self._capture(chunks, "openai")
+            if getattr(self,'workspace_job',None):
+                from serve.workspace_messages import track_chunks
+                chunks=track_chunks(chunks,svc.workspace,self.workspace_job,cancel,self.workspace_answer)
             if not req.get("stream"):
                 return self._json(200, openai_collect(chunks))
             self._sse()
@@ -6424,7 +6481,17 @@ def main() -> int:
               f"chat: {', '.join(hub.servers)}", flush=True)
         hub.start()
         atexit.register(hub.close)                      # the servers Strata started end with it
-    httpd = serve(svc, host=a.host, port=a.port)
+    from serve.chat_workspace import ChatWorkspace
+    import atexit
+    database=cfg.get('chat_database') or (str(Path(a.config).with_suffix('.chats.sqlite3')) if a.config else str(ROOT/'context-cow-data/chats.sqlite3'))
+    svc.workspace=ChatWorkspace(database)
+    atexit.register(svc.workspace.close)
+    try:
+        httpd = serve(svc, host=a.host, port=a.port)
+    except BaseException:
+        svc.workspace.close()
+        atexit.unregister(svc.workspace.close)
+        raise
     svc.start_idle_unload()
     here = "127.0.0.1" if a.host in ("0.0.0.0", "", "::") else a.host
     print(f"ready: http://{here}:{a.port}/v1  (OpenAI: /v1/chat/completions, Anthropic: /v1/messages, "
@@ -6477,6 +6544,9 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001 - never block the exit
             print(f"[strata] could not release the model files' cache: {e}", flush=True)
         print("[strata] stopped", flush=True)
+    finally:
+        svc.workspace.close()
+        atexit.unregister(svc.workspace.close)
     return 0
 
 

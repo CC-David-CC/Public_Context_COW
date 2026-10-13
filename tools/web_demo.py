@@ -27,7 +27,10 @@ def sample_service():
                    model_name='Scripted sample (no AI model)')
 
 if __name__ == '__main__':
-    server=serve(sample_service(),host='127.0.0.1',port=8095)
+    from serve.chat_workspace import ChatWorkspace
+    service=sample_service()
+    service.workspace=ChatWorkspace(Path(__file__).resolve().parents[1]/'context-cow-data/sample.chats.sqlite3')
+    server=serve(service,host='127.0.0.1',port=8095)
     print('Sample app ready: http://127.0.0.1:8095 (fixed answer, no model). Ctrl+C stops it.',flush=True)
     webbrowser.open('http://127.0.0.1:8095')
     try:
@@ -37,3 +40,4 @@ if __name__ == '__main__':
     finally:
         server.shutdown()
         server.server_close()
+        service.workspace.close()

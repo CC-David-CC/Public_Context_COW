@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Strata</title>
+<title>COW</title>
 <link rel="icon" href="web/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="web/tokens.css">
 <link rel="stylesheet" href="web/components.css">
@@ -19,7 +19,7 @@
 </head>
 <body>
 <header class="st-header">
-  <span class="st-header__brand">Strata</span>
+  <span class="st-header__brand">COW</span>
   <nav class="st-tabs" role="tablist" aria-label="Views">
     <button class="st-tab" role="tab" id="tab-btn-chat" aria-controls="view-chat" aria-selected="true" data-tab="chat">
       <svg class="st-icon st-icon--sm"><use href="web/sprite.svg#i-chat"/></svg>Chat</button>
@@ -38,6 +38,30 @@
 <main>
   <!-- ============================ Chat ============================ -->
   <section class="view view--chat" id="view-chat" role="tabpanel" aria-labelledby="tab-btn-chat">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" id="workspace-sidebar" hidden aria-label="Saved chats">
+        <div class="workspace-side-head"><h2>Chats</h2><label class="small muted"><input type="checkbox" id="show-archived"> Show archived</label></div>
+        <nav id="chat-list" aria-label="Chat list"></nav>
+        <p class="workspace-side-help">Chats live on this server. Forks share saved history. Pick a chat, then a branch.</p>
+      </aside>
+      <div class="workspace-main">
+        <div class="workspace-toolbar">
+          <button type="button" class="st-btn st-btn--primary" id="new-btn">New chat</button>
+          <button type="button" class="st-btn st-btn--secondary" id="export-btn" title="Download this branch as Markdown">Export</button>
+          <div class="workspace-current" id="workspace-controls" hidden>
+            <strong id="workspace-title">Chat</strong>
+            <label class="small" for="branch-select">Branch</label><select class="st-input" id="branch-select"></select>
+            <button class="st-btn st-btn--secondary" id="rename-chat-btn" type="button">Name chat</button>
+            <button class="st-btn st-btn--secondary" id="rename-branch-btn" type="button">Name branch</button>
+            <button class="st-btn st-btn--secondary" id="clear-branch-btn" type="button">Clear branch</button>
+            <button class="st-btn st-btn--secondary" id="archive-chat-btn" type="button">Archive chat</button>
+          </div>
+        </div>
+        <div class="workspace-state" id="workspace-state" hidden>
+          <span id="workspace-save-state" role="status">Saved history · replay mode</span>
+          <label for="restore-point" class="small">Saved points</label><select class="st-input" id="restore-point"><option value="">Choose a point</option></select>
+          <button type="button" class="st-btn st-btn--secondary" id="restore-point-btn">Restore point</button>
+        </div>
     <div class="chat-scroll" id="chat-scroll">
       <div class="chat" id="chat">
         <div class="chat-empty" id="chat-empty">
@@ -54,10 +78,6 @@
           <button type="button" class="st-btn st-btn--icon" id="attach-btn" title="Attach a text file (or drop it here)" aria-label="Attach a file">
             <svg class="st-icon"><use href="web/sprite.svg#i-attach"/></svg></button>
           <input type="file" id="file" multiple hidden>
-          <button type="button" class="st-btn st-btn--icon" id="new-btn" title="New chat" aria-label="New chat">
-            <svg class="st-icon"><use href="web/sprite.svg#i-new-chat"/></svg></button>
-          <button type="button" class="st-btn st-btn--icon" id="export-btn" title="Save this chat as Markdown" aria-label="Save this chat">
-            <svg class="st-icon"><use href="web/sprite.svg#i-download"/></svg></button>
           <button type="button" class="st-btn st-btn--icon" id="sampling-btn" title="Sampling and thinking" aria-label="Sampling and thinking">
             <svg class="st-icon"><use href="web/sprite.svg#i-settings"/></svg></button>
           <span class="spacer"></span>
@@ -68,6 +88,8 @@
             <svg class="st-icon"><use href="web/sprite.svg#i-send"/></svg></button>
         </div>
       </form>
+    </div>
+      </div>
     </div>
   </section>
 
@@ -249,10 +271,18 @@
 </aside>
 <div class="scrim" id="scrim" hidden></div>
 <div class="st-toasts" id="toasts" aria-live="polite"></div>
+<dialog id="workspace-dialog" class="workspace-dialog" aria-labelledby="workspace-dialog-title">
+  <h2 id="workspace-dialog-title">Name this chat</h2>
+  <p id="workspace-dialog-help"></p>
+  <label for="workspace-name" id="workspace-name-label">Name</label>
+  <input class="st-input" id="workspace-name" maxlength="120" autocomplete="off">
+  <div class="workspace-dialog-actions"><button class="st-btn st-btn--secondary" id="workspace-cancel" type="button">Cancel</button><button class="st-btn st-btn--primary" id="workspace-confirm" type="button">Save</button></div>
+</dialog>
 <script src="web/math.js"></script>
 <script src="web/math-katex.js"></script>
 <script src="web/math-mathjax.js"></script>
 <script src="web/math-adapter.js"></script>
+<script src="web/workspace.js"></script>
 <script src="web/app.js"></script>
 </body>
 </html>

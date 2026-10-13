@@ -792,3 +792,7 @@ llm-60 completed append/fork/reseed/generate/rewind/checkpoint/evict/evaluate/re
 ### Bounded serial speed comparison (2026-10-12)
 
 Built untouched upstream base 7695859a and ran eight serial requests on each of untouched serving, modified serving and the immutable branching API on llm-60/Q8_0/FP16 KV. All 24 requests completed, output tokens agreed across all paths, and eight API consumed frontiers matched independent fresh forwards with max error 0 at frozen tolerance 0. Actual disk reload read 119010952 bytes; complete eviction forced 38 forward tokens for the 36-token B history plus two generated tokens. Summed request times: stock 42.122s, modified serving 42.181s, API 50.345s. Startup separately 3.463s, 3.233s, 2.596s. Warm API requests improved but the complete mixed hot/cold sequence was slower. Different prefill operators and cache budgets prevent an isolated cache-only speedup claim. One fixed-order short fixture; no performance certification. Harness regression 1/1, G0 51/51, reference mutants 4/4. Evidence: `llm60-serial-speed.json`.
+
+### Branch-aware web workspace (2026-10-13)
+
+383 Python methods passed; branch UI passed 14 checks in each of three browsers. Live Q8 chat/fork/isolation/clear/restore/browser reload and server restart passed on llm-60. SQLite stores immutable presentation history and movable references. Ordinary serving replays the selected history; native GPU snapshots are not connected to the UI. No numerical oracle or new gate qualification. Evidence: docs/context-cow/CHAT_WORKSPACE_VALIDATION.md.

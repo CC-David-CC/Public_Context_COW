@@ -603,3 +603,7 @@ The user clarified that full gate certification is not required for the initial 
 ### Serial comparison interpretation (2026-10-12)
 
 Use pristine upstream source 7695859a for the stock baseline, not a cache-disabled modified binary. Keep ordinary-serving comparison separate from the experimental immutable API. Retain the measured slower total and faster reused calls without changing cache budgets or fitting numerical tolerance. Stock and modified serving agree on generated IDs; the independent fresh oracle checks full API logits. These facts do not establish batched-prefill numerical equivalence. All work remains local/private.
+
+### Web history boundary (2026-10-13)
+
+Use normalized SQLite presentation histories, separate branch heads and ordered attachment/tool relations. Keep native token histories and numerical snapshots in the existing experimental store. The UI labels its current adapter replay mode rather than claiming physical COW reuse. Failed startup releases the lifetime database owner lock; immutable rows and existing acceptance assertions remain unchanged.

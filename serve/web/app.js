@@ -94,7 +94,7 @@ function headers(json = false) {
   return h;
 }
 $("api-key").value = store.get("apikey", "");
-$("api-key").onchange = () => { store.set("apikey", $("api-key").value.trim()); toast("success", "API key saved", "Kept in this browser only."); };
+$("api-key").onchange = () => { store.set("apikey", $("api-key").value.trim()); toast("success", "API key saved", "Kept in this browser only."); ContextWorkspace.init(); };
 
 let health = {model: "strata", images: false, max_context: 0};
 async function loadHealth() {
@@ -565,6 +565,7 @@ let attachments = [];                 // {name, url}
 let busy = null;                      // {controller, msg}
 
 function saveChat() {
+  if(ContextWorkspace.enabled)return; // SQLite is authoritative; do not copy whole branches into localStorage.
   store.set("chat", messages.map((m) => ({...m, images: (m.images || []).map((i) => ({name: i.name})),
                                            files: (m.files || []).map((f) => ({name: f.name}))})));
 }
@@ -611,6 +612,8 @@ function msgEl(m, i) {
       `<button class="st-btn st-btn--icon" data-msg-copy aria-label="Copy the answer" title="Copy">${icon("copy")}</button></div>`;
     updateAssistant(el, m, false);
   }
+  const actions=ContextWorkspace.messageActions(m);
+  if(actions)el.append(actions);
   return el;
 }
 // One MCP tool call in the answer: a compact block (name, state, a one-line preview) that opens to the arguments and
@@ -777,8 +780,9 @@ function setBusy(on) {
 async function send() {
   const text = $("input").value.trim();
   if ((!text && !attachments.length) || busy) return;
-  messages.push({role: "user", text, images: attachments.filter((a) => a.kind !== "file"),
-                 files: attachments.filter((a) => a.kind === "file"), time: Date.now()});
+  const user={role: "user", text, images: attachments.filter((a) => a.kind !== "file"),
+              files: attachments.filter((a) => a.kind === "file"), time: Date.now()};
+  messages.push(user);
   attachments = [];
   renderAttachments();
   $("input").value = "";
@@ -806,7 +810,8 @@ async function send() {
   let firstAt = null, thinkStart = null, usage = null, frame = 0;
   const paint = () => { frame = 0; updateAssistant(el, m, true); scrollDown(); };
   try {
-    const r = await fetch("v1/chat/completions", {method: "POST", headers: headers(true), body: JSON.stringify(body),
+    const endpoint=ContextWorkspace.generation(body,user);
+    const r = await fetch(endpoint, {method: "POST", headers: headers(true), body: JSON.stringify(body),
                                                    signal: controller.signal});
     if (!r.ok) {
       let msg = `HTTP ${r.status}`;
@@ -871,6 +876,9 @@ async function send() {
   if (frame) cancelAnimationFrame(frame);
   updateAssistant(el, m, false);
   saveChat();
+  if(ContextWorkspace.enabled) {
+    try { await ContextWorkspace.afterGeneration(); } catch(e) { ContextWorkspace.error(e); }
+  }
   scrollDown();
 }
 
@@ -1108,6 +1116,6 @@ setBusy(false);
 renderChat();
 const startQuestion = new URLSearchParams(location.search).get("q");   // /?q=... starts a chat (a shortcut)
 if (startQuestion) history.replaceState(null, "", location.pathname + location.hash);
-loadHealth().then(loadMcp).then(() => { if (startQuestion) { $("input").value = startQuestion; send(); } });
+loadHealth().then(loadMcp).then(() => ContextWorkspace.init()).then(() => { if (startQuestion) { $("input").value = startQuestion; send(); } });
 showTab(location.hash.slice(1) || "chat");
 poll();

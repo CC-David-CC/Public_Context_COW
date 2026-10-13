@@ -27,6 +27,11 @@ td.log
 
 # created by setup.py on the user's machine
 /.venv/
+/context-cow-data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3.lock
 /build/
 /third_party/llama.cpp
 /models/

@@ -10,6 +10,10 @@
 It explains each step, including Python installation and the private `.venv`
 folder. You do not need an AI assistant or Git.
 
+**[Use chats, forks, branches, rewind and clear](docs/context-cow/CHAT_WORKSPACE_GUIDE.md).**
+The current interface saves its branch-aware history in SQLite and labels model
+execution as replay mode. Native GPU COW checkpoint integration remains separate.
+
 - **Try the app first:** run a small, clearly labelled sample with a fixed
   answer. No model download or GPU is needed.
 - **Talk to a real model:** run `START-HERE.bat` on Windows or `bash setup.sh`
@@ -20,7 +24,8 @@ folder. You do not need an AI assistant or Git.
 ![Real model chat with a rendered fraction](docs/context-cow/guide-images/02-real-model-katex.jpg)
 
 The screenshot is a real Q8 model answer served from llm-60 and viewed on a
-Windows PC. The inherited app header says **Strata**. The web chat uses ordinary
+Windows PC. This older screenshot has a **Strata** header; the current header says
+**COW**. The web chat uses ordinary
 serving; the experimental COW branch/checkpoint runners are a separate path.
 See [what was tested](docs/context-cow/WEB_START_VALIDATION.md).
 
