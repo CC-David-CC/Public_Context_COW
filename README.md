@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/context-cow/Context_COW_logo.png" alt="Context COW" width="430"></p>
 
-# Context COW v0.1.1-rc1 — experimental release candidate
+# Context COW v0.1.2-rc1 — experimental release candidate
 
 **Read a prefix once. Explore independent futures. Keep the history.**
 
@@ -19,6 +19,12 @@ complete G1–G5 certification. Original Strata documentation is in [STRATA.md](
 [All runners](docs/context-cow/RUNNERS.md) ·
 [Priorities](docs/context-cow/ROADMAP.md) ·
 [Raw reports](docs/context-cow/results/)
+
+**New in v0.1.2:** [LaTeX math rendering](docs/WEB_MATH.md) with both KaTeX and
+MathJax behind a shared core and viewer selector. Enable **Render math** in
+Chat's Sampling drawer, choose a **Math viewer**, and Apply. Assets are bundled
+locally; source is preserved in history, exports and model requests.
+[Release scope and validation](docs/context-cow/V0.1.2.md).
 
 The [v0.1.1 release candidate](docs/context-cow/V0.1.1-PLAN.md) adds an explicit
 [caller-managed write-integrity experiment](docs/context-cow/EXTERNAL_WRITE_INTEGRITY.md).

@@ -1,5 +1,24 @@
 # Branching-context implementation handoff status
 
+## v0.1.2 browser math integration, October 13
+
+The shared core from Strata #1829 and both locally bundled viewers from #1830
+and #1832 are integrated at `e36a40a6`, following core cherry-pick `4bc5def7`.
+Rendering is opt-in, with persisted KaTeX/MathJax selection. Source is retained
+for history/export/model requests, and old in-flight results are invalidated
+when a viewer changes.
+
+Six shared browser suites passed (both engines in Chromium/Firefox/WebKit),
+with 60 fixture observations. Three switching suites passed 75 named check
+observations. All 50 server/security/frontend methods passed, zero skips.
+Two earlier failed attempts are retained. Vendored engine/font assets total
+3,763,263 bytes and retain their licenses/provenance. Screenshots were inspected.
+
+Native engine, CMake and branching-store files are unchanged relative to
+v0.1.1-rc1. These are browser tests with a mock model; no new GPU measurements
+or formal G1–G5 certification are claimed. See [math usage and test scope](../../../docs/WEB_MATH.md)
+and [v0.1.2 candidate details](../../../docs/context-cow/V0.1.2.md).
+
 ## v0.1.1 bounded release candidate, October 13
 
 The opt-in caller-managed write-integrity probe and writable-access reuse are

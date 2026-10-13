@@ -1,5 +1,21 @@
 # Recorded implementation decisions
 
+## October 13: combine both math viewers on the shared core
+
+The user requested Strata #1829/#1830/#1832 for v0.1.2. Those branches supplied
+alternative replacements of one adapter; register both and use a persisted
+selector, with rendering initially off and no vendor asset load until enabled.
+Invalidate cached/in-flight results on selection changes and preserve the
+live streaming element and original message source. No model repair request
+or native-state representation change is involved.
+
+Core patch `56063f31` is cherry-picked as `4bc5def7`; combined implementation
+is `e36a40a6`. Both renderer acceptance suites passed in three browser engines,
+and switching/serialization/persistence/source tests passed in all three.
+Keep earlier red/harness failures in the evidence. Browser timing observations
+were collected concurrently and are not a performance comparison. Native/store
+sources remain unchanged from v0.1.1-rc1; do not present UI mocks as GPU evidence.
+
 ## October 13: explicit caller-managed integrity candidate
 
 At the user's request, test a mode in which the caller owns the sealed-page
