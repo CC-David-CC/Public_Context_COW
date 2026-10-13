@@ -42,6 +42,10 @@ def main(request_lanes=(('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'),
     _validate_execution(original)
     verification = _validate_model(original)
     profile = copy.deepcopy(original)
+    build_receipt = json.loads((args.binaries / 'build.json').read_text())
+    write_integrity = build_receipt.get('write_integrity_policy', 'per-write-sha256')
+    private_access = build_receipt.get('private_page_access', 'set-each-write')
+    assert write_integrity in ('per-write-sha256', 'externally-managed')
     for path in (args.api / 'src/context_time_travel').glob('*.py'):
         profile['native_build']['sha256'][str(path)] = sha(path)
     common = command(original, 'normal') + ['--pcie-frac', '0.55', '--max-new', '128']
@@ -53,6 +57,7 @@ def main(request_lanes=(('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'),
             profile['execution'][key] += ['--tokens', '1']
         profile['native_build']['sha256'][str(path)] = sha(path)
     profile['execution'].update(capacity=12288, operator='aligned-batched-prefix/normal-resources/fixed-pcie-0.55')
+    profile['execution'].update(write_integrity_policy=write_integrity, private_page_access=private_access)
     profile['execution_profile_id'] = _digest(dict(build=profile['native_build'], execution=profile['execution'], hardware=profile['hardware']))
     profile['numerical_gate_qualified'] = False
     # A changed resource profile is not admitted by the old numerical baseline.
@@ -66,10 +71,13 @@ def main(request_lanes=(('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'),
                   profile_sha256=sha(args.output / 'profile.json'), fixture_sha256=sha(args.fixture),
                   script_sha256=sha(__file__), oracle={}, requests=[], numerical_max_error=0.0,
                   request_sequence=request_lanes,
+                  write_integrity_policy=write_integrity, private_page_access=private_access,
                   limitations=['Aligned 8192-token prefill boundary only; arbitrary split remains open',
                                'Each native fresh process has no branch/checkpoint restore',
                                'Timings separate native calls, full-vector validation, controller and durable publication',
                                'Warm filesystem disk restore; no full G1/G2 qualification'])
+    if write_integrity == 'externally-managed':
+        report['limitations'].append('Caller guarantees unchanged sealed GPU bytes; write preparation does not detect an external violation')
 
     def save():
         report['updated_utc'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -228,6 +236,13 @@ def main(request_lanes=(('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'),
                 row['native_call_tps'] = len(generated)/timers['native_decode_call']
                 row['instrumented_api_tps'] = len(generated)/row['decode_seconds']
                 assert generated == oracle['generated']
+                after_decode = backend._request('stats')
+                row['decode_integrity'] = {key: after_decode[key]-after_prefill[key]
+                                          for key in ('integrity_kernel_calls', 'integrity_device_hashed_bytes', 'integrity_checked_pages')}
+                if write_integrity == 'externally-managed' or lane == 'host-ram':
+                    assert all(value == 0 for value in row['decode_integrity'].values())
+                else:
+                    assert row['decode_integrity']['integrity_kernel_calls'] == len(generated)
                 saved = sut._save(lease, prefix+suffix+tuple(generated))
             sut.cache[sid] = saved
             row.update(seconds=time.perf_counter()-started, ids=generated, actual_outputs=len(generated))

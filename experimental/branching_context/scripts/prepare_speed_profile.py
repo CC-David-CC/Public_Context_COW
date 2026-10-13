@@ -146,6 +146,8 @@ def main():
                      operator='aligned-batched-prefix/normal-resources/fixed-pcie-0.55',
                      environment={k: v for k, v in os.environ.items()
                                   if k.startswith(('STRATA_', 'CUDA_', 'NVIDIA_', 'GGML_'))})
+    execution['write_integrity_policy'] = build_receipt.get('write_integrity_policy', 'per-write-sha256')
+    execution['private_page_access'] = build_receipt.get('private_page_access', 'set-each-write')
     revision = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
     paths = [source/'CMakeLists.txt', helper, binaries/'build.json',
              binaries/'strata-batched-branch', binaries/'strata-batched-fresh']
