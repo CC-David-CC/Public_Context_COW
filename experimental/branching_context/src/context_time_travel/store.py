@@ -685,7 +685,11 @@ class Store:
                 raise IntegrityError("Invalid parent reference") from exc
         try:
             _tokens(record["inputs"])
-            _controller(record["controller"])
+            # _verify_object_file already decoded fresh, hash-checked canonical
+            # JSON. Its controller is detached and JSON-valid; only its object
+            # shape remains to check. Re-encoding a large policy adds no check.
+            if not isinstance(record["controller"], dict):
+                raise InvalidOperation("Controller state must be a JSON-compatible mapping")
         except InvalidOperation as exc:
             raise IntegrityError("Invalid stored snapshot fields") from exc
         return record

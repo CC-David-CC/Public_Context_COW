@@ -1,5 +1,6 @@
 #include "strata/core/branch_pages.hpp"
 #include <cuda_runtime.h>
+#include <algorithm>
 #include <atomic>
 #include <exception>
 #include <limits>
@@ -13,6 +14,9 @@ struct Counters {
     std::atomic<uint64_t> integrity_checked_pages{0}, integrity_mismatches{0};
 };
 Counters& counts() { static auto* c=new Counters; return *c; }
+// Bound integrity scratch independently of context length. Consecutive sealed
+// pages share one launch; the same ordered SHA-256 tiles still cover every byte.
+constexpr uint64_t verification_batch_pages = 16;
 struct PhysicalPage {
     VmmChunk handle=0;
     uint64_t id=0,bytes=0;
@@ -72,7 +76,8 @@ bool BranchPages::reserve(uint64_t bytes) {
 }
 bool BranchPages::reserve_verification() {
     const auto g=vmm_granularity();
-    return g && digest_.reserve(g) && (verification_.base() || verification_.reserve(g));
+    return g && g%branch_digest_tile_bytes==0 && g<=std::numeric_limits<uint64_t>::max()/verification_batch_pages &&
+        digest_.reserve(g*verification_batch_pages) && (verification_.base() || verification_.reserve(g));
 }
 bool BranchPages::private_table() {
     if (!table_) return false;
@@ -110,13 +115,24 @@ BranchPageSnapshot BranchPages::freeze() {
 }
 bool BranchPages::verify_current() {
     if (!table_) return false;
-    for (size_t i=0;i<table_->pages.size();++i) {
-        const auto& page=table_->pages[i];
-        if (page->seal.empty()) continue;
+    for (size_t i=0;i<table_->pages.size();) {
+        const auto& first=table_->pages[i];
+        if (first->seal.empty()) { ++i; continue; }
+        size_t end=i+1;
+        while (end<table_->pages.size() && end-i<verification_batch_pages &&
+               !table_->pages[end]->seal.empty()) ++end;
         std::vector<BranchDigest> actual;
-        if (!digest_.digest(data()+i*page->bytes,page->bytes,actual)) return false;
-        ++counts().integrity_checked_pages;
-        if (actual!=page->seal) { ++counts().integrity_mismatches; return false; }
+        const auto per_page=first->bytes/branch_digest_tile_bytes;
+        if (!digest_.digest(data()+i*first->bytes,(end-i)*first->bytes,actual) ||
+            actual.size()!=(end-i)*per_page) return false;
+        for (size_t page=i;page<end;++page) {
+            const auto& seal=table_->pages[page]->seal;
+            ++counts().integrity_checked_pages;
+            if (seal.size()!=per_page || !std::equal(seal.begin(),seal.end(),actual.begin()+(page-i)*per_page)) {
+                ++counts().integrity_mismatches; return false;
+            }
+        }
+        i=end;
     }
     return true;
 }

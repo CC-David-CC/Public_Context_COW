@@ -14,7 +14,12 @@ _DRAW_LIMIT = 1 << 128
 def _validated_state(state):
     if not isinstance(state, dict):
         raise IntegrityError('Invalid decoder controller state')
-    d = copy.deepcopy(state)
+    # Token IDs are immutable Python ints. Copy their large support list in C,
+    # preserving deepcopy's independence and alias handling for the full state.
+    policy = state.get('policy')
+    allowed = policy.get('allowed') if isinstance(policy, dict) else None
+    memo = {id(allowed): allowed.copy()} if isinstance(allowed, list) and all(type(t) is int for t in allowed) else None
+    d = copy.deepcopy(state, memo)
     # Idle is the canonical pre-generation state. Forced inputs may extend it
     # without inventing a sampler, grammar or random stream.
     if d.get('status') == 'idle':
@@ -70,11 +75,12 @@ def choose(logits, state):
     if not allowed:
         raise IntegrityError('Empty allowed-token support; grammar cannot be bypassed')
     scores = []
+    penalize = p['repetition_penalty'] != 1.0
     for token in allowed:
         score = logits[token]
         if not math.isfinite(score):
             raise IntegrityError('Non-finite raw logit')
-        if str(token) in d['seen']:
+        if penalize and str(token) in d['seen']:
             score = score/p['repetition_penalty'] if score>0 else score*p['repetition_penalty']
         scores.append(score)
     if p['temperature'] == 0:

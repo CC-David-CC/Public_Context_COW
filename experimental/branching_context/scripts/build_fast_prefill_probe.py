@@ -1,0 +1,233 @@
+"""Build isolated batched-prefill probes from existing native objects (no production edits)."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shlex
+import subprocess
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+EXTRA = """, ExpertSource* source, const ExpertCache* cache, const int32_t* residency,
+                  int64_t chunk, void* stream,
+                  const std::function<bool(const float*, float*, std::string&)>& head_rows,
+                  const std::vector<int64_t>& initial_tokens, const std::string& output,
+                  int64_t decode_steps"""
+
+INIT = """
+    strata::prefill::Prefill batched;
+    if (chunk <= 0 || !batched.init(weights, geometry, state, source, cache, residency, chunk, stream, error)) {
+        error_reply(error.empty() ? "missing real batched prefill" : error); return 1;
+    }
+    batched.on_chunk = [&](const float* rows, int64_t count, int64_t, std::string& e) {
+        return head_rows(rows + (count - 1) * geometry.hc * geometry.n_embd, logits.data(), e);
+    };
+    uint64_t prefill_tokens = 0, prefill_chunks = 0;
+"""
+
+FEED = """            std::vector<int64_t> wide(tokens.begin(), tokens.end());
+            const auto position = (int64_t)session.ids().size();
+            if (!session.begin(position, (int64_t)tokens.size(), error) ||
+                !batched.run(wide.data(), (int64_t)wide.size(), position, error) ||
+                !session.finish(tokens, logits, error)) {
+                error_reply(error.empty() ? "batched prefill failed" : error); continue;
+            }
+            prefill_tokens = batched.stats().tokens;
+            prefill_chunks = batched.stats().chunks;
+"""
+
+FRESH = r'''
+#include "strata/core/branch_driver.hpp"
+#include "strata/core/expert_source.hpp"
+#include "strata/prefill/prefill.hpp"
+#include <cuda_runtime.h>
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+namespace strata::core {
+int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, SessionState& state,
+                  const VerifyHits& hits, const NativeHead* head, PoolMultiFn pool, void* user, ExpertDispatch& dispatch, int pcie_mode,
+                  ExpertSource* source, const ExpertCache* cache, const int32_t* residency,
+                  int64_t chunk, void* stream,
+                  const std::function<bool(const float*, float*, std::string&)>& head_rows,
+                  const std::vector<int64_t>& initial_tokens, const std::string& output, int64_t decode_steps) {
+    // Fresh ordinary session: no BranchSession, store, checkpoint import or cache lookup.
+    if (initial_tokens.empty() || output.empty()) return 2;
+    std::string error;
+    strata::prefill::Prefill batched;
+    std::vector<float> logits(248320);
+    if (!batched.init(weights, geometry, state, source, cache, residency, chunk, stream, error)) {
+        std::cerr << error << std::endl; return 1;
+    }
+    batched.on_chunk = [&](const float* rows, int64_t count, int64_t position, std::string& e) {
+        const bool ok = head_rows(rows + (count - 1) * geometry.hc * geometry.n_embd, logits.data(), e);
+        std::cerr << "fresh prefill chunk position=" << position << " count=" << count << " ok=" << ok << std::endl;
+        return ok;
+    };
+    const auto begin_prefill = std::chrono::steady_clock::now();
+    if (!batched.run(initial_tokens.data(), initial_tokens.size(), 0, error)) {
+        std::cerr << error << std::endl; return 1;
+    }
+    std::ofstream file(output, std::ios::binary);
+    file.write((const char*)logits.data(), logits.size()*sizeof(float));
+    file.close();
+    if (!file) return 1;
+    const auto end_prefill = std::chrono::steady_clock::now();
+    Verifier decode;
+    if (!decode.init(weights, geometry, state, hits, head, 2, error)) { std::cerr << error; return 1; }
+    decode.set_pcie_mode(pcie_mode); decode.set_head_sampling(false);
+    dispatch.plan = decode.plan_sink();
+    std::vector<int32_t> generated;
+    std::ofstream trace(output + ".decode.f32", std::ios::binary);
+    const auto begin_decode = std::chrono::steady_clock::now();
+    for (int64_t i = 0; i < decode_steps; ++i) {
+        // Normal greedy selection; consume EOS before stopping, as for every output.
+        if (!std::all_of(logits.begin(), logits.end(), [](float v) { return std::isfinite(v); })) {
+            std::cerr << "nonfinite frontier" << std::endl; return 1;
+        }
+        int32_t token = 0;
+        for (int32_t t = 1; t < (int32_t)logits.size(); ++t)
+            if (logits[t] > logits[token]) token = t;
+        int32_t unused = 0; dispatch.failed = false;
+        if (!decode.run(1, &token, initial_tokens.size()+i, pool, user, &unused, error) || dispatch.failed ||
+            !decode.commit(1, error) || !decode.copy_logits(0, logits.data())) { std::cerr << error; return 1; }
+        generated.push_back(token);
+        trace.write((const char*)logits.data(), logits.size()*sizeof(float));
+        if ((i+1)%16 == 0) std::cerr << "fresh consumed outputs=" << i+1 << std::endl;
+        if (token == 248044 || token == 248046) break;
+    }
+    trace.close(); dispatch.plan = nullptr;
+    if (!trace) return 1;
+    std::cout << "{\"consumed\":" << initial_tokens.size()+generated.size()
+              << ",\"prompt_consumed\":" << initial_tokens.size()
+              << ",\"decode_tokens\":" << generated.size()
+              << ",\"stopping_reason\":\"" << (!generated.empty() && (generated.back()==248044 || generated.back()==248046) ? "eos" : "output_bound") << "\""
+              << ",\"prefill_tokens\":" << batched.stats().tokens
+              << ",\"prefill_chunks\":" << batched.stats().chunks
+              << ",\"prefill_seconds\":" << std::chrono::duration<double>(end_prefill-begin_prefill).count()
+              << ",\"decode_seconds\":" << std::chrono::duration<double>(std::chrono::steady_clock::now()-begin_decode).count()
+              << ",\"generated\":[";
+    for (size_t i=0;i<generated.size();++i) { if(i)std::cout << ','; std::cout << generated[i]; }
+    std::cout << "]}" << std::endl;
+    return 0;
+}
+}
+'''
+
+
+def replace_once(text, old, new):
+    if text.count(old) != 1:
+        raise ValueError('Expected unique source anchor: ' + old[:80])
+    return text.replace(old, new)
+
+
+def build(root, output, long_demo=False):
+    root, output = Path(root).resolve(), Path(output).resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    header_path = root/'include/strata/core/branch_driver.hpp'
+    header = header_path.read_text()
+    header = replace_once(header, 'ExpertDispatch&, int pcie_mode);', 'ExpertDispatch&, int pcie_mode'+EXTRA+');')
+    header = '#include <functional>\n#include <vector>\n#include <string>\n'+header
+    generated_header = output/'include/strata/core/branch_driver.hpp'
+    generated_header.parent.mkdir(parents=True)
+    generated_header.write_text(header)
+    program_path = root/'src/program/generate.cpp'
+    program = program_path.read_text()
+    program = replace_once(program, '&drive_pool_multi, &drive, drive.d, pcie_mode);', '''&drive_pool_multi, &drive, drive.d, pcie_mode,
+            srcp, o.expert_cache > 0 ? &xcache : nullptr, host_res.empty() ? nullptr : host_res.data(),
+            o.prefill_chunk, main_cs,
+            [&](const float* row, float* host, std::string& e) {
+                if (cudaMemcpyAsync(ss.R, row, (size_t)g.hc*g.n_embd*sizeof(float), cudaMemcpyDeviceToDevice,
+                                    (cudaStream_t)main_cs) != cudaSuccess || !run_head(main_cs) ||
+                    cudaMemcpyAsync(host, d_logits, (size_t)n_vocab*sizeof(float), cudaMemcpyDeviceToHost,
+                                    (cudaStream_t)main_cs) != cudaSuccess ||
+                    cudaStreamSynchronize((cudaStream_t)main_cs) != cudaSuccess) {
+                    e = err.empty() ? "prefill frontier projection/copy failed" : err; return false;
+                }
+                return true;
+            }, o.tokens, std::getenv("STRATA_DUMP_FIRST_LOGITS") ? std::getenv("STRATA_DUMP_FIRST_LOGITS") : "", o.max_new);''')
+    generated_program = output/'generate.cpp'
+    generated_program.write_text(program)
+    driver_path = root/'src/core/branch_driver.cpp'
+    driver = driver_path.read_text()
+    driver = '#include "strata/prefill/prefill.hpp"\n'+driver
+    driver = replace_once(driver, 'ExpertDispatch& dispatch, int pcie_mode) {', 'ExpertDispatch& dispatch, int pcie_mode'+EXTRA+') {')
+    driver = replace_once(driver, '    std::string line;', INIT+'\n    std::string line;')
+    start = driver.index('            bool ok = true;')
+    end = driver.index('            std::cout << "{\\"status\\":\\"ok\\",\\"consumed\\":"', start)
+    driver = driver[:start]+FEED+driver[end:]
+    if long_demo:
+        driver = replace_once(driver, 'ConversationCache ram_cache(size_t(1024) * 1024 * 1024, 8);',
+                              'ConversationCache ram_cache(size_t(16384) * 1024 * 1024, 8);')
+        decode_code = r'''        } else if (command == "decode") {
+            int32_t token; std::string extra;
+            if (!(in >> token) || (in >> extra) || token < 0 || token >= forward.vocab()) {
+                error_reply("decode requires one selected token"); continue;
+            }
+            const int64_t position = session.ids().size(); int32_t unused = 0; pool_failed = false;
+            if (!session.begin(position, 1, error) || !forward.run(1, &token, position, pool, user, &unused, error) ||
+                pool_failed || !forward.commit(1, error) || !forward.copy_logits(0, logits.data()) ||
+                !session.finish({token}, logits, error)) { error_reply(error); continue; }
+            std::cout << "{\"status\":\"ok\",\"consumed\":" << session.ids().size() << "}" << std::endl;
+'''
+        driver = replace_once(driver, '        } else if (command == "capture") {',decode_code+'        } else if (command == "capture") {')
+    driver = replace_once(driver, '<< ",\\"forward_tokens\\":" << forward.completed_forward_tokens',
+                          '<< ",\\"forward_tokens\\":" << (forward.completed_forward_tokens + prefill_tokens)\n'
+                          '                      << ",\\"prefill_tokens\\":" << prefill_tokens\n'
+                          '                      << ",\\"prefill_chunks\\":" << prefill_chunks')
+    generated_driver = output/'branch_driver.cpp'
+    generated_driver.write_text(driver)
+    fresh_path = output/'fresh_prefill.cpp'
+    fresh_source = FRESH
+    if not long_demo:
+        fresh_source = replace_once(fresh_source, 'for (int64_t i = 0; i < decode_steps; ++i)',
+                                   'for (int64_t i = 0; i < 0; ++i)')
+    fresh_path.write_text(fresh_source)
+    flags_path = root/'build/CMakeFiles/strata-branch.dir/flags.make'
+    flags = {}
+    for line in flags_path.read_text().splitlines():
+        if line.startswith(('CXX_DEFINES =', 'CXX_INCLUDES =', 'CXX_FLAGS =')):
+            key, value = line.split('=', 1)
+            flags[key.strip()] = shlex.split(value)
+    compiler = ['/usr/bin/c++', '-I'+str(output/'include'), *flags['CXX_DEFINES'],
+                *flags['CXX_INCLUDES'], *flags['CXX_FLAGS']]
+    link_path = root/'build/CMakeFiles/strata-branch.dir/link.txt'
+    original_link = shlex.split(link_path.read_text())
+    report = dict(status='BUILDING',scope='isolated batched-prefill experiment; not an admitted execution profile',long_demo=long_demo,
+                  source_sha256={str(p):sha(p) for p in [header_path, program_path, driver_path]},
+                  generated_sha256={str(p):sha(p) for p in [generated_header,generated_program,generated_driver,fresh_path]},
+                  flags_sha256=sha(flags_path),link_sha256=sha(link_path),commands=[])
+    commands = [compiler+['-c',str(p),'-o',str(output/(p.stem+'.o'))]
+                for p in [generated_program,generated_driver,fresh_path]]
+    for label, obj in [('strata-batched-branch','branch_driver.o'), ('strata-batched-fresh','fresh_prefill.o')]:
+        link = list(original_link)
+        for old, new in [('CMakeFiles/strata-branch.dir/src/program/generate.cpp.o',str(output/'generate.o')),
+                         ('CMakeFiles/strata-branch.dir/src/core/branch_driver.cpp.o',str(output/obj)),
+                         ('strata-branch',str(output/label))]:
+            if link.count(old)!=1: raise ValueError('Unexpected link recipe: '+old)
+            link[link.index(old)] = new
+        commands.append(link)
+    for index, cmd in enumerate(commands):
+        with (output/(str(index)+'.stdout')).open('wb') as out, (output/(str(index)+'.stderr')).open('wb') as err:
+            result=subprocess.run(cmd,cwd=root/'build',stdout=out,stderr=err)
+        report['commands'].append(dict(argv=cmd,exit_code=result.returncode))
+        (output/'build.json').write_text(json.dumps(report,indent=2)+'\n')
+        if result.returncode:
+            raise RuntimeError('Compile/link failed: '+str(output/(str(index)+'.stderr')))
+    report.update(status='BUILT_NOT_EXECUTED',binaries={p.name:sha(p) for p in output.glob('strata-batched-*')})
+    (output/'build.json').write_text(json.dumps(report,indent=2)+'\n')
+    print(json.dumps(report))
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('root',type=Path)
+    parser.add_argument('output',type=Path)
+    parser.add_argument('--long-demo',action='store_true')
+    args=parser.parse_args()
+    build(args.root,args.output,args.long_demo)
