@@ -1,5 +1,15 @@
 # Branching-context implementation handoff status
 
+## Latest: immediate math controls, October 13
+
+The live user report was reproduced: Off left nine formatted equations until
+Apply. Render math and Math viewer now update and save immediately, without
+another model request. Reset applies the math defaults immediately too.
+Final browser batches passed 48 new checks and 75 existing switching checks
+across Chromium, Firefox and WebKit. The real conversation verified 9 MathJax
+-> 9 KaTeX -> 0 rendered equations without Apply. See
+`docs/context-cow/MATH_CONTROLS_FIX.md`. Native/gate qualification is unchanged.
+
 ## Latest: beginner web guide and literal boundaries, October 13
 
 The README now leads to `docs/context-cow/START_HERE.md`, with full Python,

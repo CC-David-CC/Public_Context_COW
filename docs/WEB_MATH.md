@@ -1,7 +1,9 @@
 # LaTeX math in Context COW chat
 
 Open **Chat → Sampling**, enable **Render math**, choose **KaTeX** or **MathJax**
-in **Math viewer**, and click **Apply**. The browser remembers both choices.
+in **Math viewer**. These two controls update existing answers immediately;
+no **Apply** is needed. The browser remembers both choices. Other sampling
+settings still use Apply.
 Rendering starts off; KaTeX is the initial viewer selection. Both viewers and
 their fonts are bundled locally, so normal use needs no CDN, npm or TeX install.
 

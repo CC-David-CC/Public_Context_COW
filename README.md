@@ -14,8 +14,8 @@ folder. You do not need an AI assistant or Git.
   answer. No model download or GPU is needed.
 - **Talk to a real model:** run `START-HERE.bat` on Windows or `bash setup.sh`
   on Linux. Setup checks the computer and downloads the model you select.
-- **See math:** open Chat → Sampling and thinking → Render math → Apply.
-  Choose KaTeX or MathJax. Both viewers are included.
+- **See math:** open Chat → Sampling and thinking → Render math.
+  Choose KaTeX or MathJax. Math changes take effect immediately.
 
 ![Real model chat with a rendered fraction](docs/context-cow/guide-images/02-real-model-katex.jpg)
 
@@ -44,7 +44,8 @@ complete G1–G5 certification. Original Strata documentation is in [STRATA.md](
 
 **New in v0.1.2:** [LaTeX math rendering](docs/WEB_MATH.md) with both KaTeX and
 MathJax behind a shared core and viewer selector. Enable **Render math** in
-Chat's Sampling drawer, choose a **Math viewer**, and Apply. Assets are bundled
+Chat's Sampling drawer and choose a **Math viewer**. These controls update
+existing answers immediately, without Apply or another model request. Assets are bundled
 locally; source is preserved in history, exports and model requests.
 [Release scope and validation](docs/context-cow/V0.1.2.md).
 

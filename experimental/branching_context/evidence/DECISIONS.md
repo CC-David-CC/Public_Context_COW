@@ -1,5 +1,15 @@
 # Recorded implementation decisions
 
+## October 13: math display controls apply immediately
+
+The user found Off/viewer changes appeared ineffective. Reproduced the delay
+to the distant Apply button. Made only math display settings update, persist
+and repaint immediately; other sampling edits still wait for Apply. Retained
+the existing stream message element and source. Added a real-browser red/green
+test covering immediate switches, Reset, reload and pending-setting isolation.
+All three browsers passed the new and existing switching suites. Static assets
+were deployed to the already-running llm-60 app without restarting the model.
+
 ## October 13: human onboarding and vocabulary-driven literal protection
 
 The user requested a beginner guide on the public repository homepage and

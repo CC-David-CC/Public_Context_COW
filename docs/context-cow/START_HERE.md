@@ -201,7 +201,8 @@ You can also press **Enter** to send a message.
 2. For this short first test, set **Thinking** to **Off**.
 3. Turn on **Render math**.
 4. Set **Math viewer** to **KaTeX**.
-5. Scroll down inside the settings panel if needed. Click **Apply**.
+5. The math controls take effect immediately. To save the **Thinking** change
+   too, scroll down inside the settings panel if needed and click **Apply**.
 
 ![The math switch and viewer menu on the live server](guide-images/01-math-settings.jpg)
 
@@ -219,7 +220,7 @@ ask it to copy the equation in your message.
 ![A real GPU model answer with a KaTeX fraction](guide-images/02-real-model-katex.jpg)
 
 7. Open **Sampling and thinking** again.
-8. Change **Math viewer** to **MathJax**. Click **Apply**.
+8. Change **Math viewer** to **MathJax**. The answer updates immediately.
 9. Check the same answer. The app changes the viewer without asking the model again.
 
 ![The same real answer with MathJax](guide-images/03-real-model-mathjax.jpg)
@@ -284,7 +285,7 @@ unquoted text that the model intended as an example.
 | Python is not found, or the Store opens | Install Python as in A1. Close PowerShell. Open it again. Run `python --version`. |
 | `No module named jinja2` | Run the install command in A3 with `.venv\Scripts\python.exe`. Do not install it into a different Python. |
 | API key needed | Open **About**. Enter the key supplied by the server owner in **API key**. Do not publish that key. The default local setup does not need one. |
-| You see `\frac{1}{2}` instead of a fraction | Turn on Render math and click Apply. Check that the formula has `\(` and `\)` around it and is outside a code block. |
+| You see `\frac{1}{2}` instead of a fraction | Turn on Render math. It takes effect immediately. Check that the formula has `\(` and `\)` around it and is outside a code block. |
 | An equation still does not render | Try the other viewer. Keep the raw source. See [supported syntax and limits](../WEB_MATH.md). |
 | You see only thinking | Turn Thinking Off for a quick test. A stop inside thinking does not prove that the model produced a final answer. |
 | Setup stops with a memory or driver error | Read the last error in the server window. Check the hardware requirements. Do not repeatedly download the model to fix a driver error. |

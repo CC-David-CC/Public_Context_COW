@@ -99,12 +99,12 @@
       "sha256": "8baf9f0c33bda79734f2dc461c043eb78cfcabca6ff9ca4e2aec2de26469e4b6"
     },
     "docs/context-cow/START_HERE.md": {
-      "bytes": 15213,
-      "sha256": "44871c5907b9687bd8f22bfa13d68dd4827e86b6515d8d387126c928dcefdfe6"
+      "bytes": 15327,
+      "sha256": "2994990c557252c245941484a2b68deb33259b49d3559172781816b514eea2ca"
     },
     "docs/context-cow/WEB_START_VALIDATION.md": {
-      "bytes": 8771,
-      "sha256": "6213cb26cdb0c6c11671e3c4687594dc93fbad01c8a26a0e74632d4b30add3b4"
+      "bytes": 8924,
+      "sha256": "c6f2b2537dca34b6ea6827dea63cde0f99a92ede09e709f331a1bc88fa5c42b3"
     },
     "docs/context-cow/results/web-start-20261013/regressions-combined-126.json": {
       "bytes": 10132,

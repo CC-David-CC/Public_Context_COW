@@ -1,5 +1,8 @@
 # Beginner web-app validation: October 13, 2026
 
+Follow-up: [math controls now update immediately](MATH_CONTROLS_FIX.md), with
+123 additional final browser checks and a live before/after reproduction.
+
 The [beginner guide](START_HERE.md) was exercised with a real GPU model on
 llm-60 and a clean sample environment on Windows. The guide uses short steps
 and defined terms in the style of simplified technical English. It is not a

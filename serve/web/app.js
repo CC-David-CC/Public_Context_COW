@@ -1049,12 +1049,29 @@ function outputs() {
 }
 for (const b of $("s-thinking").children) b.onclick = () => { for (const x of $("s-thinking").children) x.setAttribute("aria-checked", String(x === b)); outputs(); };
 for (const id of ["s-temp", "s-topp", "s-topk"]) $(id).oninput = outputs;
-$("s-math").onclick = () => $("s-math").setAttribute("aria-checked", String($("s-math").getAttribute("aria-checked") !== "true"));
+function repaintAnswers() {
+  // Keep the element captured by send() alive while an answer streams.
+  for (const el of $("chat").querySelectorAll(".st-msg--assistant")) {
+    const m = messages[+el.dataset.i];
+    updateAssistant(el, m, !!busy && busy.msg === m);
+  }
+}
+function applyMathSettings() {
+  settings.math = $("s-math").getAttribute("aria-checked") === "true";
+  settings.mathEngine = StrataMathEngines.select($("s-math-engine").value);
+  store.set("sampling", settings);
+  repaintAnswers();
+}
+$("s-math").onclick = () => {
+  $("s-math").setAttribute("aria-checked", String($("s-math").getAttribute("aria-checked") !== "true"));
+  applyMathSettings();
+};
+$("s-math-engine").onchange = applyMathSettings;
 $("s-show").onclick = () => $("s-show").setAttribute("aria-checked", String($("s-show").getAttribute("aria-checked") !== "true"));
 $("s-esp").onclick = () => $("s-esp").setAttribute("aria-checked", String($("s-esp").getAttribute("aria-checked") !== "true"));
 $("s-mcp").onclick = () => $("s-mcp").setAttribute("aria-checked", String($("s-mcp").getAttribute("aria-checked") !== "true"));
 $("s-share").onclick = () => $("s-share").setAttribute("aria-checked", String($("s-share").getAttribute("aria-checked") !== "true"));
-$("s-reset").onclick = () => loadDrawer(DEFAULTS);
+$("s-reset").onclick = () => { loadDrawer(DEFAULTS); applyMathSettings(); };
 $("s-apply").onclick = async () => {
   const sel = [...$("s-thinking").children].find((b) => b.getAttribute("aria-checked") === "true");
   settings = {thinking: sel ? sel.dataset.v : "high", temperature: +$("s-temp").value, top_p: +$("s-topp").value,
@@ -1066,11 +1083,7 @@ $("s-apply").onclick = async () => {
               mcp: $("s-mcp").getAttribute("aria-checked") === "true"};
   settings.mathEngine = StrataMathEngines.select(settings.mathEngine);
   store.set("sampling", settings);
-  // Keep the element captured by send() alive while an answer streams.
-  for (const el of $("chat").querySelectorAll(".st-msg--assistant")) {
-    const m = messages[+el.dataset.i];
-    updateAssistant(el, m, !!busy && busy.msg === m);
-  }
+  repaintAnswers();
   const share = $("s-share").getAttribute("aria-checked") === "true";
   openDrawer(false);
   if (share || sharedOn) {
