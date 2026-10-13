@@ -1,5 +1,25 @@
 # Branching-context implementation handoff status
 
+## v0.1.1 bounded release candidate, October 13
+
+The opt-in caller-managed write-integrity probe and writable-access reuse are
+implemented at `0bb06645`; production native sources/defaults remain guarded.
+Fresh paired baseline/candidate runs both passed four lanes and 516 exact
+comparisons, maximum error 0.0. Native COW gains were 6.4–6.6%; resident A
+preparation fell 183.75 -> 4.76 ms over 128 outputs. RAM changed 0.47%, a small
+observed difference. Initial variant campaigns also passed 516 comparisons each.
+
+The explicit external-promise fixture passed 214 checks across four KV layouts;
+its corruption case demonstrates that external violations are NOT detected
+before write in this mode. CUDA memcheck reported zero errors. Rerun baseline
+native CTests: 6/6; SHA methods: 3/3; controller/profile-input methods: 4/4 each;
+G0: 51/51; reference demo/mutants passed. The stale-profile failure was retained.
+Full G1–G5 qualification remains open. Both GPUs have no queued experiment.
+
+[Candidate scope and measured comparison](../../../docs/context-cow/EXTERNAL_WRITE_INTEGRITY.md)
+and [completed plan](../../../docs/context-cow/V0.1.1-PLAN.md) supersede the
+earlier v0.1.0 performance paragraph for this candidate branch.
+
 ## Current package: Context COW v0.1.0, October 13
 
 The current bounded CUDA result is documented in

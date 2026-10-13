@@ -9,6 +9,7 @@ may require the historical pinned execution profiles they describe.
 | Runner | What it exercises |
 |---|---|
 | `build_fast_prefill_probe.py` | Build separate native batched COW and uncached full-history probes from the current CMake objects |
+| `build_external_integrity_probe.py` | Opt-in caller-managed write integrity, with optional reuse of already writable private pages; original guard stays available |
 | `prepare_speed_profile.py` | Verify actual model inputs, binaries, hardware and fixture; write an explicitly unqualified local profile |
 | `cow_speed_8k.py` | 8K + 512 + 128; resident A/B, RAM A, disk B; logits, page counters, parent audit and durable publication |
 | `ram_speed_8k.py` | Same checks for RAM-restored private GPU pages, A/B/A |

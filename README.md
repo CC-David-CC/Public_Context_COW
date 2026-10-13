@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/context-cow/Context_COW_logo.png" alt="Context COW" width="430"></p>
 
-# Context COW v0.1.0 — experimental
+# Context COW v0.1.1-rc1 — experimental release candidate
 
 **Read a prefix once. Explore independent futures. Keep the history.**
 
@@ -19,6 +19,13 @@ complete G1–G5 certification. Original Strata documentation is in [STRATA.md](
 [All runners](docs/context-cow/RUNNERS.md) ·
 [Priorities](docs/context-cow/ROADMAP.md) ·
 [Raw reports](docs/context-cow/results/)
+
+The [v0.1.1 release candidate](docs/context-cow/V0.1.1-PLAN.md) adds an explicit
+[caller-managed write-integrity experiment](docs/context-cow/EXTERNAL_WRITE_INTEGRITY.md).
+Fresh paired reruns show **6.4–6.6% higher native TPS on COW lanes**, with the
+caller assuming the sealed-page mutation guarantee. COW A reached 50.63 TPS
+versus 47.49 for the guarded v0.1.0 control. The original v0.1.0 release/tag and
+its measurements remain available; the guarded path remains the default build.
 
 ## Measured, with the guards still on
 

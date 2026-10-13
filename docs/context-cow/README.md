@@ -1,4 +1,4 @@
-# Context COW v0.1.0 — experimental
+# Context COW v0.1.1-rc1 — experimental release candidate
 
 Context COW keeps immutable conversation histories while reusing optional model
 state in GPU memory, host RAM and on disk. The focus is GPU copy-on-write: share
@@ -13,9 +13,13 @@ not imply that these changes have been accepted upstream.
 - [Measurements, fingerprints and limitations](RESULTS.md)
 - [Runner inventory](RUNNERS.md)
 - [Priorities and design](ROADMAP.md)
+- [v0.1.1 candidate plan](V0.1.1-PLAN.md)
+- [Caller-managed write-integrity experiment](EXTERNAL_WRITE_INTEGRITY.md)
 - [Raw reports and export manifest](results/MANIFEST.json)
 - [Figure sources and provenance](figures/PROVENANCE.json)
 
-The source checkpoint for the latest GPU optimization is `c053ddbb`.
-The Git release tag is `context-cow-v0.1.0`; this version identifies the
-experimental Context COW package, independently of Strata's version numbers.
+The guarded source checkpoint is `c053ddbb`; the caller-managed probe is
+`0bb06645`. The completed candidate comparison is documented in
+[EXTERNAL_WRITE_INTEGRITY.md](EXTERNAL_WRITE_INTEGRITY.md). v0.1.0's release tag
+remains `context-cow-v0.1.0`; candidate work is on `release/context-cow-v0.1.1`.
+Context COW package versions are independent of Strata's version numbers.

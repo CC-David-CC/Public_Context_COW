@@ -1,5 +1,25 @@
 # Recorded implementation decisions
 
+## October 13: explicit caller-managed integrity candidate
+
+At the user's request, test a mode in which the caller owns the sealed-page
+mutation guarantee. Keep ordered host metadata/range and COW checks; omit the
+GPU byte scan before writes. Implement it as an isolated replacement object,
+not a silent production default. Reuse writable access only on already private,
+unsealed pages. Restore/capture retain their original byte checks.
+
+The source is `0bb06645`. Initial and fresh paired model campaigns each passed
+516 exact comparisons; paired native gains were 6.4–6.6% on COW lanes. Candidate
+preparation was 4.76 ms versus 183.75 ms for baseline A over 128 outputs. RAM's
+small 0.47% observed change is not a statistical speed claim. The deliberate
+corrupting alias was accepted before write by this mode and rejected by the
+guarded counterpart; that loss of automatic detection is explicitly recorded.
+
+Prepare v0.1.1 as an experimental release candidate, keep the original v0.1.0
+tag/data immutable and publish the new measurements separately. Full gate,
+arbitrary-split, serving-parity and portability gaps remain. See
+[the executed comparison](../../../docs/context-cow/EXTERNAL_WRITE_INTEGRITY.md).
+
 ## 2026-10-13: measured preparation optimization and experimental publication
 
 The separate native timers located the COW penalty in preparation, not model
