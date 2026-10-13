@@ -36,5 +36,8 @@
     "tools/check_live_chat.py": "73f06d7137c0b934114abbb8b096dc012a6e90fd61992862a42565a425ecd912",
     "tools/check_model_literals.py": "937636760d7e225bb0a3ad5f0b81a56cbe968f2eabcc1b219e02c17b8e8fc4b7",
     "tools/run_web_regressions.py": "225ca1e340e2a8af2b136fdaba902c2126bc1b2deee1f7dbb5c3bb8bc70ad021"
-  }
+  },
+  "combined_regression_report": "regressions-combined-126.json",
+  "combined_regression_seconds": 40.004,
+  "combined_process_exit_code": 0
 }

@@ -9,7 +9,7 @@ claim of formal ASD-STE100 vocabulary certification.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Template, parser, tool, HTTP and security regressions | 125 unittest methods passed; no failures, errors or skips | [Executed IDs and result](results/web-start-20261013/regressions-final.json) |
+| Combined template, parser, tool, HTTP, security and sample regressions | 126 unittest methods passed in 40.004 seconds; no failures, errors or skips | [Executed IDs and result](results/web-start-20261013/regressions-combined-126.json) |
 | Sample app with only Jinja2 and its dependency installed | One method passed, testing Thinking Off and High | [Clean environment result](results/web-start-20261013/sample-clean-env.json) |
 | Real exported Q8 tokenizer | All 22 literal prompt-boundary cases passed | [Vocabulary, template hashes and token IDs](results/web-start-20261013/model-literals.json) |
 | Real Q8 inference, final code | 22/22 exact copies; 11 streaming and 11 non-streaming; no transport errors | [Complete responses](results/web-start-20261013/live-exact-copy-final.json) |
