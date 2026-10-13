@@ -45,10 +45,11 @@ You can fork from a user message or an answer. Wait for an answer to finish firs
 
 ## See where the paths split
 
-The **Paths** box stays above the messages. Click its heading to hide or show it.
-The app remembers that choice.
+The **Paths** box stays beside the messages on a wide screen. On a smaller
+screen, it moves above them. The tree reads from top to bottom in both places.
+Click its heading to hide or show it. The app remembers that choice.
 
-![Three paths with a shared beginning and a second shared section](results/branch-viewer-20261013/browser-release/chromium-three-paths.png)
+![Three paths with a shared beginning and a second shared section](results/dynamic-graph-20261013/portrait-graph/chromium-three-paths.png)
 
 This example uses saved test messages about fractions:
 
@@ -65,6 +66,14 @@ model tokens. The line lengths do not show elapsed time.
 3. Use the splitting arrow in the preview to fork there. Use the curled arrow to rewind there.
 4. Close the preview with its **×** button.
 
+Two branch names at the same dot mean that both paths currently end at the same
+saved message. When you add an ending to one path, the map moves the cards and
+lines to show the new split. The selected path has a green outline.
+
+Use **+** or **−** to change the map size. The **four corners** button fits the
+map in its box. If the map is larger than the box, scroll it. On a computer, you
+can also drag its empty background. These actions do not change the chat.
+
 Looking at a preview does not change the chat. Fork and rewind act when you click
 their arrow buttons. Long sections show ten previews at a time. Use **Next** or
 **Previous** to see more.
@@ -77,7 +86,7 @@ Check **Show previous tips** after a rewind or clear. A faded path shows a saved
 ending that is no longer current. Click its badge to preview it; use the curled
 arrow in that preview to return the selected branch to that saved point.
 
-![A previous Pizza ending remains available after rewind](results/branch-viewer-20261013/browser-release/chromium-previous-tip.png)
+![A previous Pizza ending remains available after rewind](results/dynamic-graph-20261013/portrait-graph/chromium-previous-tip.png)
 
 If you see **Refresh paths**, click it before editing the branch. Another tab
 may have changed the saved history, or the network may have failed. Your draft
@@ -93,6 +102,9 @@ stays in the message box. A failed stale edit does not move the branch.
 - **Name chat** and **Name branch** change labels. They do not change messages.
 
 These actions do not undo things a tool did outside the chat, such as writing a file.
+Choose a saved point before you click its restore arrow. The arrow is disabled
+until there is a point to restore. You can also click **Start** in the map to
+fork an empty path or rewind to the start.
 
 ![The pizza branch after clear, restore and browser reload](results/chat-workspace-20261013/04-live-restored.jpg)
 
@@ -147,4 +159,4 @@ These are the same controls you learned above, with the words hidden:
 Hold the pointer over an icon to check its name. The browser's keyboard and
 screen-reader labels are also available when the visible words are hidden.
 
-![Compact COW interface with the live 4K history graph](results/branch-viewer-20261013/live-4k.jpg)
+![Current compact interface with the user's live fork and vertical map](results/dynamic-graph-20261013/after.jpg)

@@ -14,6 +14,9 @@ folder. You do not need an AI assistant or Git.
 The **Paths** viewer shows saved-message progress, shared beginnings and branch
 endings. Click a name to switch paths, or a dot to preview messages.
 [See the viewer and executed checks](docs/context-cow/BRANCH_VIEWER.md).
+[The dynamic viewer](docs/context-cow/DYNAMIC_BRANCH_VIEWER.md) keeps the map
+beside chat on wide screens and above it on smaller screens, with grouped tips,
+animated curves, zoom and pan.
 The current interface saves its branch-aware history in SQLite and labels model
 execution as replay mode. Native GPU COW checkpoint integration remains separate.
 

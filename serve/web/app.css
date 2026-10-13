@@ -16,6 +16,8 @@ main { flex: 1; min-height: 0; min-width:0; display: flex; }
 /* ---------------------------------------------------------------- chat */
 .workspace-shell { display:flex; flex:1; min-height:0; min-width:0; }
 .workspace-main { display:flex; flex-direction:column; flex:1; min-height:0; min-width:0; }
+.workspace-content { display:flex; flex:1; min-height:0; min-width:0; width:100%; max-width:1360px; margin-inline:auto; }
+.chat-session { display:flex; flex-direction:column; flex:1; min-height:0; min-width:0; order:0; }
 .workspace-sidebar { width:230px; flex:none; overflow-y:auto; border-right:1px solid var(--st-line-soft); background:var(--st-surface-2); padding:var(--st-s-4); }
 .workspace-side-head h2 { font-size:var(--st-fs-lg); margin:0 0 var(--st-s-3); }
 .workspace-side-head { margin-bottom:var(--st-s-4); }
@@ -25,6 +27,7 @@ main { flex: 1; min-height: 0; min-width:0; display: flex; }
 .workspace-chat small { display:block; color:var(--st-ink-muted); margin-top:5px; }
 .workspace-side-help { color:var(--st-ink-muted); font-size:var(--st-fs-xs); line-height:1.5; }
 .workspace-toolbar,.workspace-current,.workspace-state { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.workspace-toolbar,.workspace-state { width:100%; max-width:1360px; margin-inline:auto; }
 .workspace-toolbar { padding:12px 18px; border-bottom:1px solid var(--st-line-soft); }
 .workspace-current { min-width:0; flex:1; }
 #workspace-title { overflow-wrap:anywhere; margin-right:8px; }
@@ -70,34 +73,76 @@ html[data-teaching="true"] .workspace-chat-row { flex-wrap:wrap; }
   .workspace-toolbar .st-btn,.workspace-current .st-btn,.workspace-state .st-btn { font-size:var(--st-fs-xs); height:32px; }
 }
 .chat-scroll { flex: 1; min-height: 0; min-width:0; overflow-y: auto; }
-.branch-viewer { flex:none; min-width:0; max-height:45vh; overflow:auto; margin:8px 18px 0; border:1px solid var(--st-line-soft); border-radius:14px; background:var(--st-surface-2); }
-.branch-viewer summary { padding:12px 16px; cursor:pointer; font-weight:600; }
-#graph-summary { margin-left:12px; font-size:var(--st-fs-xs); color:var(--st-ink-muted); font-weight:400; }
+.branch-viewer { position:relative; order:1; flex:none; width:360px; min-width:0; height:calc(100% - 16px); overflow:hidden; margin:0 12px 16px 0; border:1px solid var(--st-line-soft); border-radius:16px; background:var(--st-surface-2); }
+.branch-viewer summary { height:72px; box-sizing:border-box; padding:16px; cursor:pointer; font-weight:600; }
+.branch-viewer:not([open]) { width:72px; }
+.branch-viewer:not([open]) #graph-summary { display:none; }
+#graph-summary { display:block; margin:6px 0 0 16px; font-size:var(--st-fs-xs); color:var(--st-ink-muted); font-weight:400; }
+.graph-body { position:absolute; top:72px; bottom:0; left:0; right:0; display:flex; flex-direction:column; min-height:0; }
 .graph-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:0 16px 8px; font-size:var(--st-fs-xs); }
 .graph-tools label { display:flex; align-items:center; gap:6px; }
 #graph-status { color:var(--st-ink-muted); }
-.graph-scroll { max-height:280px; overflow:auto; padding:8px; }
+.graph-scroll { flex:1; min-height:0; overflow:auto; padding:8px; }
 .graph-canvas { position:relative; }
-.graph-canvas > svg { position:absolute; inset:0; pointer-events:none; }
-.graph-line { fill:none; stroke:var(--st-line); stroke-width:2; }
-.graph-line.graph-selected { stroke:var(--st-accent-text); stroke-width:3; }
+.graph-drawing { position:absolute; inset:0; transform-origin:0 0; }
+.graph-drawing > svg { position:absolute; inset:0; pointer-events:none; }
+.graph-zoom { display:flex; align-items:center; gap:4px; margin-left:auto; }
+.graph-zoom button { height:28px; min-width:28px; padding:3px 8px; font-size:13px; color:var(--st-ink-muted); background:var(--st-surface-2); border:1px solid var(--st-line); border-radius:8px; }
+.graph-zoom button:hover { color:var(--st-ink); background:var(--st-surface); }
+#graph-scale { min-width:38px; text-align:center; font-variant-numeric:tabular-nums; }
+.graph-line { fill:none; stroke:var(--st-ink-muted); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; opacity:.6; }
+.graph-line.graph-selected { stroke:var(--st-accent-text); stroke-width:3; opacity:1; }
 .graph-canvas button { position:absolute; font:inherit; cursor:pointer; color:var(--st-ink); }
 .graph-dot { border:2px solid var(--st-ink-muted); border-radius:50%; width:16px; height:16px; background:var(--st-surface); padding:0; }
 .graph-dot[aria-label="Inspect chat start"] { font-size:11px; width:40px; height:24px; border-radius:8px; transform:translate(-12px,-4px); }
 .graph-dot::after { content:attr(aria-label); position:absolute; top:24px; left:0; border-radius:7px; padding:6px 9px; background:var(--st-ink); color:var(--st-surface); font-size:12px; font-weight:400; white-space:nowrap; opacity:0; visibility:hidden; pointer-events:none; z-index:20; transition:opacity .12s,visibility 0s .12s; }
 .graph-dot:hover::after,.graph-dot:focus-visible::after { opacity:1; visibility:visible; transition-delay:.85s; }
-.graph-tip { width:205px; padding:8px 12px; border:1px solid var(--st-line-soft); border-radius:10px; background:var(--st-surface); text-align:left; overflow-wrap:anywhere; }
+.graph-tip { width:205px; height:46px; padding:5px 10px; font-size:14px !important; line-height:1.1; border:1px solid var(--st-line-soft); border-radius:10px; background:var(--st-surface); text-align:left; white-space:nowrap; }
+.graph-tip-name { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .graph-tip small { display:block; margin-top:3px; color:var(--st-ink-muted); font-size:11px; }
-.graph-segment { max-width:180px; font-size:11px !important; padding:6px 9px; border:1px solid var(--st-line-soft); border-radius:16px; background:var(--st-surface); white-space:nowrap; }
+.graph-segment { max-width:180px; font-size:11px !important; line-height:1.2 !important; padding:6px 9px; border:1px solid var(--st-line-soft); border-radius:16px; background:var(--st-surface); white-space:nowrap; }
 .graph-canvas button.graph-selected { outline:2px solid var(--st-accent-text); outline-offset:2px; }
+.graph-tip.graph-selected { background:var(--st-accent-tint); }
+.graph-tip { transition:background .2s,outline-color .2s; }
+.graph-line { transition:stroke .2s,stroke-width .2s; }
 .graph-old { opacity:.55; }
 .graph-line.graph-old { stroke-dasharray:5 4; }
 .graph-canvas button:focus-visible { outline:3px solid var(--st-ink); outline-offset:3px; }
-.graph-inspector { margin:8px 16px 16px; padding:12px; border:1px solid var(--st-line-soft); border-radius:10px; background:var(--st-surface); max-height:320px; overflow:auto; }
+.graph-inspector { flex:none; margin:8px 12px 12px; padding:12px; border:1px solid var(--st-line-soft); border-radius:12px; background:var(--st-surface); max-height:min(280px,35vh); overflow:auto; }
 .graph-inspector-head,.graph-pages { display:flex; align-items:center; gap:8px; justify-content:space-between; }
 .graph-preview { border-top:1px solid var(--st-line-soft); padding:10px 0; font-size:var(--st-fs-xs); }
 .graph-preview p { white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0; color:var(--st-ink-muted); }
-@media(max-width:700px) { .branch-viewer { margin:8px; max-height:30vh; } .branch-viewer summary { padding:10px; } .graph-tools { padding:0 10px 8px; } .graph-scroll { max-height:170px; } }
+@media(max-width:1100px) {
+  .workspace-content { flex-direction:column; }
+  .branch-viewer { order:0; width:auto; height:auto; max-height:36vh; flex:none; margin:0 12px 8px; overflow:auto; }
+  .branch-viewer:not([open]) { width:auto; }
+  .branch-viewer summary { height:auto; padding:10px 12px; }
+  #graph-summary { display:inline; margin:0 0 0 10px; }
+  .graph-body { position:static; height:auto; }
+  .graph-scroll { flex:none; max-height:210px; }
+  .graph-inspector { max-height:180px; }
+}
+@media(max-width:700px) { .branch-viewer { margin:0 8px 6px; max-height:27vh; } .graph-tools { padding:0 10px 6px; gap:6px; } .graph-scroll { max-height:130px; } .graph-tools label { font-size:11px; } }
+@media(max-width:700px) {
+  .workspace-sidebar { padding:8px; }
+  .workspace-side-head { margin-bottom:6px; }
+  .workspace-chat { padding:8px; }
+  .workspace-state { padding:6px 8px; gap:6px; }
+  #workspace-save-state { min-width:80px; font-size:11px; }
+  #restore-point { width:135px; }
+  html:not([data-teaching="true"]) .workspace-toolbar { display:grid; grid-template-columns:36px 36px minmax(0,1fr) 36px 36px; gap:8px; padding:8px; }
+  html:not([data-teaching="true"]) #workspace-controls { display:contents; }
+  html:not([data-teaching="true"]) #new-btn { grid-row:1; grid-column:1; }
+  html:not([data-teaching="true"]) #export-btn { grid-row:1; grid-column:2; }
+  html:not([data-teaching="true"]) #workspace-title { grid-row:1; grid-column:3; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; margin:0; }
+  html:not([data-teaching="true"]) #rename-chat-btn { grid-row:1; grid-column:4; }
+  html:not([data-teaching="true"]) #teaching-btn { grid-row:1; grid-column:5; }
+  html:not([data-teaching="true"]) #branch-select { grid-row:2; grid-column:1 / 4; width:100%; }
+  html:not([data-teaching="true"]) #rename-branch-btn { grid-row:2; grid-column:4; }
+  html:not([data-teaching="true"]) #clear-branch-btn { grid-row:2; grid-column:5; }
+}
+.graph-scroll.is-panning { cursor:grabbing; user-select:none; }
+@media(prefers-reduced-motion:reduce) { .graph-scroll { scroll-behavior:auto; } .graph-tip,.graph-line { transition:none; } }
 .chat { max-width: 860px; margin: 0 auto; padding: var(--st-s-8) var(--st-s-6) var(--st-s-6); display: flex;
         flex-direction: column; gap: var(--st-s-6); }
 .chat-empty { margin: 12vh auto 0; text-align: center; }

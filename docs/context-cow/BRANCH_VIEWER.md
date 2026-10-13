@@ -6,6 +6,11 @@ history representation was introduced.
 
 For instructions, read [the chat and branch guide](CHAT_WORKSPACE_GUIDE.md).
 
+The current viewer is vertical and responsive. Its updated screenshots,
+motion checks and same-tip fork regression are documented in
+[Dynamic chat branches and saved points](DYNAMIC_BRANCH_VIEWER.md).
+The results below record the initial implementation.
+
 ## What the graph means
 
 A chat row reports branch count and the longest current path in saved messages.

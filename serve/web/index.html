@@ -59,15 +59,19 @@
         </div>
         <div class="workspace-state" id="workspace-state" hidden>
           <span id="workspace-save-state" role="status">Saved history · replay mode</span>
-          <label for="restore-point" class="small">Saved points</label><select class="st-input" id="restore-point"><option value="">Choose a point</option></select>
+          <label for="restore-point" class="small control-caption">Saved points</label><select class="st-input" id="restore-point" aria-label="Saved points"><option value="">Saved points</option></select>
           <button type="button" class="st-btn st-btn--secondary" id="restore-point-btn">Restore point</button>
         </div>
+      <div class="workspace-content">
       <details id="branch-viewer" class="branch-viewer" open hidden>
         <summary>Paths <span id="graph-summary"></span></summary>
-        <div class="graph-tools"><label><input type="checkbox" id="graph-previous"> Show previous tips</label><span id="graph-status" role="status"></span><button class="st-btn st-btn--secondary" id="graph-refresh" type="button" hidden>Refresh paths</button></div>
+        <div class="graph-body">
+        <div class="graph-tools"><label><input type="checkbox" id="graph-previous"> Show previous tips</label><div class="graph-zoom"><button class="st-btn" id="graph-zoom-out" type="button" aria-label="Zoom out">−</button><output id="graph-scale">100%</output><button class="st-btn" id="graph-zoom-in" type="button" aria-label="Zoom in">+</button><button class="st-btn" id="graph-fit" type="button" aria-label="Fit paths">Fit</button></div><span id="graph-status" role="status"></span><button class="st-btn st-btn--secondary" id="graph-refresh" type="button" hidden>Refresh paths</button></div>
         <div id="graph-scroll" class="graph-scroll" tabindex="0" aria-label="Chat paths"><div id="graph-canvas" class="graph-canvas"></div></div>
         <section id="graph-inspector" class="graph-inspector" aria-label="Saved message preview" hidden></section>
+        </div>
       </details>
+    <div class="chat-session">
     <div class="chat-scroll" id="chat-scroll">
       <div class="chat" id="chat">
         <div class="chat-empty" id="chat-empty">
@@ -94,6 +98,8 @@
             <svg class="st-icon"><use href="web/sprite.svg#i-send"/></svg></button>
         </div>
       </form>
+    </div>
+    </div>
     </div>
       </div>
     </div>

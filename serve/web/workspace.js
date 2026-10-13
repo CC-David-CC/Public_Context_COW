@@ -6,6 +6,8 @@ const ContextWorkspace = {
     fork:'<path d="M7 19V5m0 7c0-5 10-1 10-7"/><path d="m14 7 3-3 3 3"/><circle cx="7" cy="20" r="2"/><circle cx="7" cy="4" r="2"/>',
     rewind:'<path d="M4 10a8 8 0 1 1 1 9M4 4v6h6"/>',
     add:'<path d="M12 5v14M5 12h14"/>',
+    minus:'<path d="M5 12h14"/>',
+    fit:'<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/>',
     export:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
     pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',
     name:'<path d="M3 4h9l9 9-8 8-10-10z"/><circle cx="7" cy="8" r="1"/><path d="m12 12 4 4"/>',
@@ -47,6 +49,7 @@ const ContextWorkspace = {
       $('rename-branch-btn').onclick=()=>this.renameBranch();
       $('clear-branch-btn').onclick=()=>this.clear();
       $('restore-point-btn').onclick=()=>this.rewind($('restore-point').value);
+      $('restore-point').onchange=()=>this.savedPointControls();
       $('show-archived').onchange=()=>this.refreshList().catch(e=>this.error(e));
       if(messages.length && !store.get('workspace.imported',false)) {
         let operation=store.get('workspace.import-operation',null);
@@ -111,6 +114,24 @@ const ContextWorkspace = {
   saveDraft() {
     if(this.current)this.drafts.set(this.current.id,{text:$('input').value,attachments:structuredClone(attachments)});
   },
+  savedPoints(graph) {
+    if(!this.current || !Array.isArray(this.current.moves))return;
+    const nodes=new Map(graph.nodes.map(n=>[n.id,n])),points=$('restore-point'),previous=points.value;
+    points.replaceChildren();const prompt=document.createElement('option');prompt.value='';prompt.textContent='Saved points';points.append(prompt);
+    const added=new Set();
+    for(const move of this.current.moves){
+      if(added.has(move.from_node))continue;added.add(move.from_node);
+      const option=document.createElement('option');option.value=move.from_node;const node=nodes.get(move.from_node);
+      option.textContent=move.from_node===graph.root_id?'Start of chat':node?`${node.depth} ${node.depth===1?'message':'messages'} · ${(node.preview || node.role).replace(/\s+/g,' ').slice(0,42)}`:`Saved ${new Date(move.at*1000).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'})}`;
+      points.append(option);
+    }
+    if(added.has(previous))points.value=previous;
+    this.savedPointControls();
+  },
+  savedPointControls() {
+    $('restore-point').disabled=this.moving || !!busy || $('restore-point').options.length<2;
+    $('restore-point-btn').disabled=this.moving || !!busy || !$('restore-point').value;
+  },
   async select(branch) {
     if(busy)throw Error('Wait for the answer before switching branches.');
     const epoch=++this.selectionEpoch;
@@ -121,6 +142,7 @@ const ContextWorkspace = {
       this.request('branches?chat='+encodeURIComponent(history.chat_id)),this.request('chats?archived=true')]);
     if(epoch!==this.selectionEpoch)return;
     this.saveDraft();
+    ContextGraph.beginChat(history.chat_id);
     this.current=history;messages=history.messages;
     const draft=this.drafts.get(branch);$('input').value=draft?.text || '';attachments=structuredClone(draft?.attachments || []);
     autosize();renderAttachments();renderChat();
@@ -131,9 +153,9 @@ const ContextWorkspace = {
     // Include archived metadata without forcing the archived list open.
     const catalog=catalogData.chats;
     const chat=catalog.find(c=>c.id===history.chat_id);$('workspace-title').textContent=chat?.title || 'Chat';
-    $('workspace-save-state').textContent=history.pending_request?'Answer in progress in another tab':`${messages.length} saved messages · replay mode`;
+    $('workspace-save-state').textContent=history.pending_request?'Answer in progress in another tab':`${messages.length} saved ${messages.length===1?'message':'messages'}`;
     $('workspace-save-state').title='Serving receives the selected history and may reuse its prompt/conversation checkpoints. Native GPU COW handles are not connected to this interface yet.';
-    const points=$('restore-point');points.replaceChildren();const prompt=document.createElement('option');prompt.value='';prompt.textContent='Choose a saved point';points.append(prompt);
+    const points=$('restore-point');points.replaceChildren();const prompt=document.createElement('option');prompt.value='';prompt.textContent='Saved points';points.append(prompt);
     const added=new Set();
     for(const move of history.moves){if(added.has(move.from_node))continue;added.add(move.from_node);const option=document.createElement('option');option.value=move.from_node;option.textContent='Before change '+move.revision;points.append(option);}
     await this.refreshList();
@@ -157,7 +179,7 @@ const ContextWorkspace = {
     } catch(e){
       if(e.status===409 && this.current){try {await this.select(this.current.id);} catch(refreshError){ContextGraph.failed(refreshError);}}
       this.error(e);
-    } finally {this.moving=false;controls.forEach(control=>control.disabled=false);ContextGraph.disableActions();}
+    } finally {this.moving=false;controls.forEach(control=>control.disabled=false);this.savedPointControls();ContextGraph.disableActions();}
   },
   fork(node) {
     return this.direct(async()=>{
@@ -165,20 +187,20 @@ const ContextWorkspace = {
       while(names.has(`Alternative ${number}`))number++;
       const name=`Alternative ${number}`;
       const branch=await this.request('branches/fork',{branch_id:this.current.id,node_id:node,name,operation_id:this.operation()});await this.select(branch.id);
-      toast('info','Branch created',name);
+      $('input').focus();
     });
   },
   rewind(node) {
     if(!node)return;
     return this.direct(async()=>{
       const branch=await this.request('branches/rewind',{branch_id:this.current.id,revision:this.current.revision,node_id:node,operation_id:this.operation()});await this.select(branch.id);
-      toast('info','Point restored','The previous tip is in Saved points.');
+      $('input').focus();
     });
   },
   clear() {
     return this.direct(async()=>{
       const branch=await this.request('branches/clear',{branch_id:this.current.id,revision:this.current.revision,operation_id:this.operation()});await this.select(branch.id);
-      toast('info','Branch cleared','Restore its previous tip from Saved points.');
+      $('input').focus();
     });
   },
   renameChat() {this.modal('Name this chat','Use a name you can find in the chat list.',$('workspace-title').textContent,async title=>{await this.request('chats/rename',{chat_id:this.current.chat_id,title});await this.select(this.current.id);});},
