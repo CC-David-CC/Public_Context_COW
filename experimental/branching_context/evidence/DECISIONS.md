@@ -1,5 +1,22 @@
 # Recorded implementation decisions
 
+## October 13: human onboarding and vocabulary-driven literal protection
+
+The user requested a beginner guide on the public repository homepage and
+real server/browser validation. Added a fixed-answer sample app that requires
+no model or GPU and explicitly labels itself. Kept ordinary web chat distinct
+from the experimental branch/checkpoint runners. The guide explains venv and
+uses direct venv Python paths instead of activation or policy changes.
+
+Red tests exposed missing USER_DEFINED literal protection, wrapped-user query
+misclassification, schema-key markers and private-use character collisions.
+Fixed prompt encoding generically using the actual vocabulary and per-prompt
+collision-free mappings. Structural template tokens stay structural. Unknown
+tags stay data. Natural stop inside reasoning does not become a fabricated
+answer. Exact-copy observations and source-preserving copy/export are executed
+evidence, not claims of universal model obedience. Native equations, frozen
+tolerances and gate assertions were not edited.
+
 ## October 13: combine both math viewers on the shared core
 
 The user requested Strata #1829/#1830/#1832 for v0.1.2. Those branches supplied

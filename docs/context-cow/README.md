@@ -1,4 +1,4 @@
-# Context COW v0.1.2-rc1 — experimental release candidate
+# Context COW v0.1.2-rc2 — experimental release candidate
 
 Context COW keeps immutable conversation histories while reusing optional model
 state in GPU memory, host RAM and on disk. The focus is GPU copy-on-write: share
@@ -9,7 +9,9 @@ This project is based on [Strata](https://github.com/Niko1221/Strata). Compatibl
 changes are intended to be proposed upstream over time. Publication here does
 not imply that these changes have been accepted upstream.
 
-- [Build and run](GETTING_STARTED.md)
+- [Beginner setup and first chat, with screenshots](START_HERE.md)
+- [Live web-app validation and literal-tag regression results](WEB_START_VALIDATION.md)
+- [Build and run the COW experiment](GETTING_STARTED.md)
 - [v0.1.2 math viewers and validation](V0.1.2.md)
 - [LaTeX usage](../WEB_MATH.md)
 - [Measurements, fingerprints and limitations](RESULTS.md)

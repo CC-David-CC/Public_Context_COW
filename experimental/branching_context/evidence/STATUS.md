@@ -1,5 +1,18 @@
 # Branching-context implementation handoff status
 
+## Latest: beginner web guide and literal boundaries, October 13
+
+The README now leads to `docs/context-cow/START_HERE.md`, with full Python,
+private-environment, sample-app, real-model and first-equation instructions.
+Six screenshots were captured from the actual browser. Live Q8 chat and both
+viewers worked on llm-60, as did a real model call to the test MCP calculator.
+Code `34b62704` protects all vocabulary specials, tool wrappers, schema keys
+and private-character marker collisions. Final validation passed 125 methods
+plus the clean-environment sample test; the real model copied 22/22 literals
+exactly. Actual copy/export retained source. See
+`docs/context-cow/WEB_START_VALIDATION.md` for fingerprints, failed attempts and
+exact scope. Native COW code and G1-G5 qualification remain unchanged.
+
 ## v0.1.2 browser math integration, October 13
 
 The shared core from Strata #1829 and both locally bundled viewers from #1830

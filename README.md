@@ -1,8 +1,30 @@
 <p align="center"><img src="docs/context-cow/Context_COW_logo.png" alt="Context COW" width="430"></p>
 
-# Context COW v0.1.2-rc1 — experimental release candidate
+# Context COW v0.1.2-rc2 — experimental release candidate
 
 **Read a prefix once. Explore independent futures. Keep the history.**
+
+## Start here: open the app and see an equation
+
+**[Follow the beginner setup and first-chat guide](docs/context-cow/START_HERE.md).**
+It explains each step, including Python installation and the private `.venv`
+folder. You do not need an AI assistant or Git.
+
+- **Try the app first:** run a small, clearly labelled sample with a fixed
+  answer. No model download or GPU is needed.
+- **Talk to a real model:** run `START-HERE.bat` on Windows or `bash setup.sh`
+  on Linux. Setup checks the computer and downloads the model you select.
+- **See math:** open Chat → Sampling and thinking → Render math → Apply.
+  Choose KaTeX or MathJax. Both viewers are included.
+
+![Real model chat with a rendered fraction](docs/context-cow/guide-images/02-real-model-katex.jpg)
+
+The screenshot is a real Q8 model answer served from llm-60 and viewed on a
+Windows PC. The inherited app header says **Strata**. The web chat uses ordinary
+serving; the experimental COW branch/checkpoint runners are a separate path.
+See [what was tested](docs/context-cow/WEB_START_VALIDATION.md).
+
+## What Context COW adds
 
 Context COW adds immutable branching histories and reusable GPU, RAM and disk
 checkpoints to [Strata](https://github.com/Niko1221/Strata). Its focus is GPU
