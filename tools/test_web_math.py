@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def run(browser_name, output):
+def run(browser_name, output, engine="katex"):
     from playwright.sync_api import sync_playwright
     from serve.frontend import ChatTemplate
     from serve.server import ByteTokenizer, MockEngine, Service, serve
@@ -22,7 +22,7 @@ def run(browser_name, output):
     svc = Service(MockEngine(tok, "ok"), tok, ChatTemplate(ROOT / "serve/chat_template.jinja"))
     server = serve(svc, port=0)
     base = f"http://127.0.0.1:{server.server_port}/"
-    report = {"browser": browser_name, "vendor_bytes": sum(p.stat().st_size for p in
+    report = {"browser": browser_name, "engine": engine, "vendor_bytes": sum(p.stat().st_size for p in
         (ROOT / "serve/web/vendor").rglob("*") if p.is_file()), "equations": []}
     try:
         with sync_playwright() as pw:
@@ -36,6 +36,11 @@ def run(browser_name, output):
             page.on("request", lambda request: requests.append(request.url))
             page.goto(base)
             page.wait_for_function("typeof settings !== 'undefined'")
+            assert not page.evaluate("settings.math")
+            assert not any("/vendor/" in url for url in requests)
+            page.click("#sampling-btn")
+            page.select_option("#s-math-engine", engine)
+            page.click("#s-apply")
             assert not page.evaluate("settings.math")
             assert not any("/vendor/" in url for url in requests)
             assert page.request.get(base + "web/vendor/../../server.py").status == 404
@@ -203,5 +208,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--browser", choices=["chromium", "firefox", "webkit"], default="chromium")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--engine", choices=["katex", "mathjax"], default="katex")
     args = parser.parse_args()
-    run(args.browser, args.output)
+    run(args.browser, args.output, args.engine)

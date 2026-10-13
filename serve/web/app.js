@@ -557,8 +557,9 @@ function markdown(text) {
 }
 
 // ------------------------------------------------------------------ Chat
-const DEFAULTS = {thinking: "high", temperature: 0.6, top_p: 0.95, top_k: 20, max: "", seed: "", show: true, esp: true, mcp: true, math: false};
+const DEFAULTS = {thinking: "high", temperature: 0.6, top_p: 0.95, top_k: 20, max: "", seed: "", show: true, esp: true, mcp: true, math: false, mathEngine: "katex"};
 let settings = {...DEFAULTS, ...store.get("sampling", {})};
+settings.mathEngine = StrataMathEngines.select(settings.mathEngine);
 let messages = store.get("chat", []);
 let attachments = [];                 // {name, url}
 let busy = null;                      // {controller, msg}
@@ -997,6 +998,7 @@ function loadDrawer(s = settings) {
   $("s-temp").value = s.temperature; $("s-topp").value = s.top_p; $("s-topk").value = s.top_k;
   $("s-max").value = s.max; $("s-seed").value = s.seed;
   $("s-math").setAttribute("aria-checked", String(!!s.math));
+  $("s-math-engine").value = s.mathEngine || "katex";
   $("s-show").setAttribute("aria-checked", String(!!s.show));
   $("s-esp").setAttribute("aria-checked", String(s.esp !== false));
   $("esp-row").hidden = !projectionLoaded();
@@ -1058,11 +1060,12 @@ $("s-apply").onclick = async () => {
   settings = {thinking: sel ? sel.dataset.v : "high", temperature: +$("s-temp").value, top_p: +$("s-topp").value,
               top_k: +$("s-topk").value, max: $("s-max").value.trim(), seed: $("s-seed").value.trim(),
               math: $("s-math").getAttribute("aria-checked") === "true",
+              mathEngine: $("s-math-engine").value,
               show: $("s-show").getAttribute("aria-checked") === "true",
               esp: $("s-esp").getAttribute("aria-checked") === "true",
               mcp: $("s-mcp").getAttribute("aria-checked") === "true"};
+  settings.mathEngine = StrataMathEngines.select(settings.mathEngine);
   store.set("sampling", settings);
-  StrataMath.reset();
   // Keep the element captured by send() alive while an answer streams.
   for (const el of $("chat").querySelectorAll(".st-msg--assistant")) {
     const m = messages[+el.dataset.i];

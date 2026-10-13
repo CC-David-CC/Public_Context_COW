@@ -92,9 +92,10 @@ globalThis.StrataMath = (() => {
   }
   function hydrate(container) {
     const generation = container._mathGeneration = (container._mathGeneration || 0) + 1;
+    const current = epoch;
     for (const slot of container.querySelectorAll("[data-math]")) {
       result(decodeURIComponent(slot.dataset.math), slot.dataset.display === "1").then(r => {
-        if (generation !== container._mathGeneration || !container.contains(slot)) return;
+        if (current !== epoch || generation !== container._mathGeneration || !container.contains(slot)) return;
         if (r.ok) slot.replaceChildren(r.element.cloneNode(true));
         else { slot.dataset.mathError = r.reason; slot.title = "Math source (" + r.reason + ")"; }
       });
