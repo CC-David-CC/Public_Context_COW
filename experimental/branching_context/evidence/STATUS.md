@@ -796,3 +796,7 @@ Built untouched upstream base 7695859a and ran eight serial requests on each of 
 ### Branch-aware web workspace (2026-10-13)
 
 383 Python methods passed; branch UI passed 14 checks in each of three browsers. Live Q8 chat/fork/isolation/clear/restore/browser reload and server restart passed on llm-60. SQLite stores immutable presentation history and movable references. Ordinary serving replays the selected history; native GPU snapshots are not connected to the UI. No numerical oracle or new gate qualification. Evidence: docs/context-cow/CHAT_WORKSPACE_VALIDATION.md.
+
+### Compact UI and cached 1K/4K measurements (2026-10-13)
+
+60 browser checks and 20 store/HTTP methods passed. Enabled six native prompt checkpoints and an 8 GiB/eight-slot conversation cache on llm-60. Twelve long-context requests completed; native cached reuse was measured. All six original-versus-repeat output equality assertions failed. An identical 4660-token HTTP payload after server restart differed cold versus warm, while warm versus warm matched; first reuse counter was zero. No logit oracle or numerical error measurement. Native GPU COW UI adapter remains absent. Archive retains SQLite history and forces checkpoint=false for new requests; old native entries follow bounded eviction. Evidence: docs/context-cow/SLEEK_UI_AND_LONG_CONTEXT.md.

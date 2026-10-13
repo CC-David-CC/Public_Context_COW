@@ -2,6 +2,28 @@
 "use strict";
 const ContextWorkspace = {
   enabled:false,current:null,chats:[],branches:[],loading:false,
+  icons:{
+    fork:'<path d="M7 19V5m0 7c0-5 10-1 10-7"/><path d="m14 7 3-3 3 3"/><circle cx="7" cy="20" r="2"/><circle cx="7" cy="4" r="2"/>',
+    rewind:'<path d="M4 10a8 8 0 1 1 1 9M4 4v6h6"/>',
+    add:'<path d="M12 5v14M5 12h14"/>',
+    export:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
+    pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',
+    clear:'<path d="m3 14 10-10 8 8-8 8H9zm6 6h12M8 9l8 8"/>',
+    archive:'<path d="m7 7 10 10M17 7 7 17"/>',
+    unarchive:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
+    teach:'<path d="M3 5h7l2 2 2-2h7v14h-7l-2 2-2-2H3zM12 7v14"/>'
+  },
+  iconButton(button,label,icon) {
+    button.replaceChildren();button.classList.add('cow-icon');button.setAttribute('aria-label',label);button.removeAttribute('title');
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.innerHTML=this.icons[icon];button.append(svg);
+    const span=document.createElement('span');span.className='control-label';span.textContent=label;button.append(span);return button;
+  },
+  appearance() {
+    for(const [id,label,icon] of [['new-btn','New chat','add'],['export-btn','Export','export'],['rename-chat-btn','Name chat','pencil'],['rename-branch-btn','Name branch','pencil'],['clear-branch-btn','Clear branch','clear'],['restore-point-btn','Restore point','rewind'],['teaching-btn','Show control labels','teach']])
+      this.iconButton($(id),label,icon);
+    const teaching=store.get('workspace.teaching',false);document.documentElement.dataset.teaching=String(teaching);$('teaching-btn').setAttribute('aria-pressed',String(teaching));
+    $('teaching-btn').onclick=()=>{const on=document.documentElement.dataset.teaching!=='true';document.documentElement.dataset.teaching=String(on);store.set('workspace.teaching',on);$('teaching-btn').setAttribute('aria-pressed',String(on));};
+  },
   async request(path,body) {
     const response=await fetch('workspace/'+path,{method:body===undefined?'GET':'POST',headers:headers(body!==undefined),body:body===undefined?undefined:JSON.stringify(body)});
     let data;try { data=await response.json(); } catch(e) { throw Error('The server did not return a chat response.'); }
@@ -11,6 +33,7 @@ const ContextWorkspace = {
   operation() { return crypto.randomUUID(); },
   async init() {
     if(this.loading || busy)return;
+    this.appearance();
     this.loading=true;
     try {
       this.chats=(await this.request('chats')).chats;
@@ -21,7 +44,6 @@ const ContextWorkspace = {
       $('rename-chat-btn').onclick=()=>this.renameChat();
       $('rename-branch-btn').onclick=()=>this.renameBranch();
       $('clear-branch-btn').onclick=()=>this.clear();
-      $('archive-chat-btn').onclick=()=>this.archive();
       $('restore-point-btn').onclick=()=>this.rewind($('restore-point').value);
       $('show-archived').onchange=()=>this.refreshList().catch(e=>this.error(e));
       if(messages.length && !store.get('workspace.imported',false)) {
@@ -64,7 +86,12 @@ const ContextWorkspace = {
       const button=document.createElement('button');button.type='button';button.className='workspace-chat';button.setAttribute('aria-current',String(this.current?.chat_id===chat.id));
       const title=document.createElement('strong');title.textContent=chat.title;button.append(title);
       const subtitle=document.createElement('small');subtitle.textContent=chat.archived?'Archived · click to open':new Date(chat.created_at*1000).toLocaleDateString();button.append(subtitle);
-      button.onclick=()=>this.openChat(chat.id).catch(e=>this.error(e));list.append(button);
+      button.onclick=()=>this.openChat(chat.id).catch(e=>this.error(e));
+      const row=document.createElement('div');row.className='workspace-chat-row';row.append(button);
+      const archive=document.createElement('button');archive.type='button';archive.className='st-btn workspace-chat-archive';archive.dataset.archiveChat=chat.id;
+      if(this.current?.chat_id===chat.id)archive.id='archive-chat-btn';
+      this.iconButton(archive,chat.archived?'Unarchive chat':'Archive chat',chat.archived?'unarchive':'archive');
+      archive.onclick=()=>this.archive(chat).catch(e=>this.error(e));row.append(archive);list.append(row);
     }
   },
   async openChat(chat) {
@@ -84,9 +111,8 @@ const ContextWorkspace = {
     // Include archived metadata without forcing the archived list open.
     const catalog=(await this.request('chats?archived=true')).chats;
     const chat=catalog.find(c=>c.id===history.chat_id);$('workspace-title').textContent=chat?.title || 'Chat';
-    $('archive-chat-btn').textContent=chat?.archived?'Unarchive chat':'Archive chat';
     $('workspace-save-state').textContent=history.pending_request?'Answer in progress in another tab':`${messages.length} saved messages · replay mode`;
-    $('workspace-save-state').title='Ordinary serving uses the selected history. Native GPU COW handles are not connected to this interface yet.';
+    $('workspace-save-state').title='Serving receives the selected history and may reuse its prompt/conversation checkpoints. Native GPU COW handles are not connected to this interface yet.';
     const points=$('restore-point');points.replaceChildren();const prompt=document.createElement('option');prompt.value='';prompt.textContent='Choose a saved point';points.append(prompt);
     const added=new Set();
     for(const move of history.moves){if(added.has(move.from_node))continue;added.add(move.from_node);const option=document.createElement('option');option.value=move.from_node;option.textContent='Before change '+move.revision;points.append(option);}
@@ -114,17 +140,16 @@ const ContextWorkspace = {
   },
   renameChat() {this.modal('Name this chat','Use a name you can find in the chat list.',$('workspace-title').textContent,async title=>{await this.request('chats/rename',{chat_id:this.current.chat_id,title});await this.select(this.current.id);});},
   renameBranch() {this.modal('Name this branch','The name does not change its history.',this.current.name,async name=>{await this.request('branches/rename',{branch_id:this.current.id,name});await this.select(this.current.id);});},
-  archive() {
-    const archived=$('archive-chat-btn').textContent==='Unarchive chat';
-    this.modal(archived?'Unarchive chat?':'Archive this chat?',archived?'Move this chat back to the normal list.':'Hide this chat from the normal list. Show archived lets you reopen it.',null,async()=>{
-      await this.request('chats/archive',{chat_id:this.current.chat_id,archived:!archived});await this.refreshList();
-    },archived?'Unarchive':'Archive');
+  async archive(chat) {
+    if(busy)throw Error('Wait for the answer before archiving a chat.');
+    await this.request('chats/archive',{chat_id:chat.id,archived:!chat.archived});await this.refreshList();
+    toast('info',chat.archived?'Chat restored':'Chat archived','Its saved messages remain in SQLite.');
   },
   messageActions(message) {
     if(!this.enabled||!message.node_id)return null;
     const actions=document.createElement('div');actions.className='workspace-message-actions';
     for(const [text,kind,callback] of [['Fork here','fork',()=>this.fork(message.node_id)],['Rewind here','rewind',()=>this.rewind(message.node_id)]]) {
-      const button=document.createElement('button');button.type='button';button.className='st-btn st-btn--secondary';button.textContent=text;button.dataset['workspace'+kind[0].toUpperCase()+kind.slice(1)]=message.node_id;
+      const button=document.createElement('button');button.type='button';button.className='st-btn st-btn--secondary';this.iconButton(button,text,kind);button.dataset['workspace'+kind[0].toUpperCase()+kind.slice(1)]=message.node_id;
       button.onclick=callback;actions.append(button);
     }
     return actions;

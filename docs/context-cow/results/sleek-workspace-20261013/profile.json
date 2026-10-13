@@ -1,0 +1,29 @@
+{
+  "status": "MIXED",
+  "ui_status": "PASS",
+  "browser_checks": 60,
+  "python_methods": 20,
+  "long_context_exact_output_status": "FAIL",
+  "exact_output_failures": 6,
+  "long_requests_completed": 12,
+  "cold_warm_probe_status": "FAIL",
+  "cold_warm_output_equal": false,
+  "warm_warm_output_equal": true,
+  "full_logit_oracle": false,
+  "numerical_max_error": null,
+  "native_cow_ui_adapter_connected": false,
+  "live_server_pid": 1291435,
+  "prompt_checkpoints": 6,
+  "prompt_checkpoint_interval": 1024,
+  "conversation_cache_mib": 8192,
+  "conversation_cache_slots": 8,
+  "source_sha256": {
+    "serve/chat_workspace.py": "1ce32a2e274b7a1e477bc6cc50a4f66c912aadb184df59bc6b0a683f677d3d59",
+    "serve/server.py": "50944e314094cc923a093782f2533e00cee56033db927aa82d519b5f922567e6",
+    "serve/web/index.html": "89296aebe38c32bbb12dc376c226adc3b703afb85581a041e5df3c33a39b7159",
+    "serve/web/app.css": "7dd56db628dd19d23eae476caedcf5caf1514ca14d3cce4ec64ac9540026caaa",
+    "serve/web/workspace.js": "ca925472ea6143e6092f09e5cbee459cd99996fbbc53507a60170233f97ce99b",
+    "tools/test_workspace_long_context.py": "fb849ac0a6e5b1ef7abcab8b71ddfd1fef9f6bc321c9f42274347132cbdfc112",
+    "tools/check_cached_payload_repeat.py": "e2552102607f28f422e097b3f61286c723e9cf3812e881ea0d977ddfa318409a"
+  }
+}

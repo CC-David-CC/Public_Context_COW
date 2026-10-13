@@ -607,3 +607,7 @@ Use pristine upstream source 7695859a for the stock baseline, not a cache-disabl
 ### Web history boundary (2026-10-13)
 
 Use normalized SQLite presentation histories, separate branch heads and ordered attachment/tool relations. Keep native token histories and numerical snapshots in the existing experimental store. The UI labels its current adapter replay mode rather than claiming physical COW reuse. Failed startup releases the lifetime database owner lock; immutable rows and existing acceptance assertions remain unchanged.
+
+### Cache-enabled review and compact controls (2026-10-13)
+
+Keep native prompt/conversation caches enabled as explicitly requested, and preserve the long-context output mismatches as failures. Do not infer state corruption or a harmless numerical error without logit evidence. The identical-payload probe isolates the difference below UI replay construction. Use existing ckpt=0 for archived requests; do not invent a per-chat native eviction primitive. Default icons retain accessible names, delayed hover/focus tooltips and optional teaching labels.

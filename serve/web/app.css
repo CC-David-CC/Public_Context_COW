@@ -34,6 +34,24 @@ main { flex: 1; min-height: 0; display: flex; }
 #restore-point { width:200px; max-width:100%; }
 .workspace-message-actions { display:flex; gap:8px; margin-top:8px; }
 .workspace-message-actions button { font-size:var(--st-fs-xs); height:30px; }
+.cow-icon { position:relative; min-width:36px; padding:8px; gap:8px; }
+.cow-icon svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+html:not([data-teaching="true"]) .control-label,
+html:not([data-teaching="true"]) .control-caption { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.cow-icon::after { content:attr(aria-label); position:absolute; top:calc(100% + 7px); left:50%; transform:translateX(-50%); border-radius:7px; padding:6px 9px; background:var(--st-ink); color:var(--st-surface); font-size:12px; font-weight:400; white-space:nowrap; opacity:0; visibility:hidden; pointer-events:none; z-index:20; transition:opacity .12s,visibility 0s .12s; }
+.cow-icon:hover::after,.cow-icon:focus-visible::after { opacity:1; visibility:visible; transition-delay:.85s; }
+.cow-icon::after { left:auto; right:0; transform:none; }
+#new-btn::after,#export-btn::after { left:0; right:auto; }
+.workspace-chat-row { position:relative; display:flex; align-items:center; margin-bottom:5px; border-radius:10px; }
+.workspace-chat-row .workspace-chat { margin:0; padding-right:38px; }
+.workspace-chat-archive { position:absolute; right:3px; padding:5px; min-width:28px; height:28px; background:transparent; color:var(--st-ink-muted); }
+.workspace-chat-archive svg { width:16px; height:16px; }
+.workspace-chat-archive::after { left:auto; right:0; transform:none; }
+.workspace-side-help { display:none; }
+html[data-teaching="true"] .workspace-side-help { display:block; }
+html[data-teaching="true"] .workspace-chat-archive { position:static; height:auto; }
+html[data-teaching="true"] .workspace-chat-row .workspace-chat { padding-right:12px; }
+html[data-teaching="true"] .workspace-chat-row { flex-wrap:wrap; }
 .workspace-dialog { width:min(420px,90vw); color:var(--st-ink); background:var(--st-surface); border:1px solid var(--st-line-soft); border-radius:16px; padding:24px; }
 .workspace-dialog::backdrop { background:rgba(0,0,0,.35); }
 .workspace-dialog h2 { margin-top:0; }

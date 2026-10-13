@@ -283,6 +283,8 @@ class ChatWorkspace:
     def archive_chat(self,chat,archived):
         if type(archived) is not bool:raise ValueError('archived must be true or false')
         with self.connection(True) as db:
+            if db.execute("SELECT 1 FROM requests r JOIN branches b ON b.id=r.branch_id WHERE b.chat_id=? AND r.status='pending'",(chat,)).fetchone():
+                raise WorkspaceConflict('Wait for this chat answer before archiving')
             if db.execute('UPDATE chats SET archived=? WHERE id=?',(int(archived),chat)).rowcount!=1:raise WorkspaceNotFound('Chat not found')
 
     def claim(self,branch,revision,message,settings,op):
@@ -291,9 +293,11 @@ class ChatWorkspace:
             old=self._receipt(db,op,request)
             if old:return {**old,'replayed':True}
             head=self._head(db,branch);self._not_busy(db,branch)
+            effective=dict(settings)
+            if db.execute('SELECT archived FROM chats WHERE id=?',(head['chat_id'],)).fetchone()[0]:effective['strata_checkpoint']=False
             result=self._append(db,head,revision,message)
-            db.execute('INSERT INTO requests VALUES(?,?,?,?,?,?,NULL)',(op,branch,result['tip'],result['revision'],canonical(settings),'pending'))
-            result={**result,'request_id':op,'input_node':result['tip']}
+            db.execute('INSERT INTO requests VALUES(?,?,?,?,?,?,NULL)',(op,branch,result['tip'],result['revision'],canonical(effective),'pending'))
+            result={**result,'request_id':op,'input_node':result['tip'],'settings':effective}
             self._receipt(db,op,request,result);return result
 
     def request(self,op):

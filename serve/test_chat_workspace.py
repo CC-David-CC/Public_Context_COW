@@ -138,3 +138,15 @@ class WorkspaceTests(unittest.TestCase):
         self.store.claim(self.branch,0,{'role':'user','text':'Question','time':3},{},'request')
         with self.assertRaises(WorkspaceConflict):ChatWorkspace(self.path)
         self.assertEqual(self.store.request('request')['status'],'pending')
+
+    def test_archived_chat_preserves_text_and_forces_checkpoint_off(self):
+        self.add('saved text')
+        self.store.archive_chat(self.chat['id'],True)
+        job=self.store.claim(self.branch,1,{'role':'user','text':'Read archived chat'}, {'strata_checkpoint':True},'archived-request')
+        self.assertIs(job['settings']['strata_checkpoint'],False)
+        self.assertEqual(self.store.history(self.branch)['messages'][0]['text'],'saved text')
+        with self.assertRaises(WorkspaceConflict):self.store.archive_chat(self.chat['id'],False)
+        self.store.finish('archived-request',None,'failed')
+        self.store.archive_chat(self.chat['id'],False)
+        next_job=self.store.claim(self.branch,2,{'role':'user','text':'Continue'}, {},'active-request')
+        self.assertNotIn('strata_checkpoint',next_job['settings'])

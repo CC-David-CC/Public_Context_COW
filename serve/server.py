@@ -5206,6 +5206,7 @@ def make_handler(svc: Service):
                 sampling={k:v for k,v in req.items() if k not in ('message','messages','branch_id','revision','operation_id','model')}
                 job=workspace.claim(branch,revision,message,sampling,op)
                 if job.get('replayed'):raise WorkspaceConflict('This request was already accepted; reload the branch')
+                sampling=job['settings']
                 self.workspace_job=op;self.workspace_answer=Answer()
                 api={**sampling,'messages':model_messages(workspace.history(branch)['messages']),'model':svc.model}
                 self.record=svc.begin_request('/workspace/generate',api)

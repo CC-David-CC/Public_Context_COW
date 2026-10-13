@@ -13,6 +13,7 @@ from serve.server import ByteTokenizer,MockEngine,Service,serve
 class Recording(MockEngine):
     def generate(self,ids,*args,**kwargs):
         self.prompts.append(self.tok.decode(ids))
+        self.last_sampling=args[1]
         yield from super().generate(ids,*args,**kwargs)
 
 
@@ -62,6 +63,14 @@ class WorkspaceHTTP(unittest.TestCase):
         receipt=next(c['context_workspace'] for c in chunks if c.get('context_workspace'))
         self.assertTrue(receipt['saved']);self.assertEqual(self.service.workspace.history(branch['id'])['tip'],receipt['tip'])
         self.assertEqual(self.service.workspace.request('stream')['status'],'completed')
+
+    def test_archived_request_disables_native_checkpoint_saving(self):
+        branch=self.create()
+        self.service.workspace.archive_chat(branch['chat_id'],True)
+        code,result=self.generate(branch,'Preserve this text','archived')
+        self.assertEqual(code,200)
+        self.assertIs(self.engine.last_sampling['strata_checkpoint'],False)
+        self.assertEqual(self.service.workspace.history(branch['id'])['messages'][0]['text'],'Preserve this text')
 
     def test_history_has_auth_and_mutation_has_origin_checks(self):
         self.service.api_key='test-key'

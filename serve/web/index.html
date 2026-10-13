@@ -47,15 +47,15 @@
       <div class="workspace-main">
         <div class="workspace-toolbar">
           <button type="button" class="st-btn st-btn--primary" id="new-btn">New chat</button>
-          <button type="button" class="st-btn st-btn--secondary" id="export-btn" title="Download this branch as Markdown">Export</button>
+          <button type="button" class="st-btn st-btn--secondary" id="export-btn">Export</button>
           <div class="workspace-current" id="workspace-controls" hidden>
             <strong id="workspace-title">Chat</strong>
-            <label class="small" for="branch-select">Branch</label><select class="st-input" id="branch-select"></select>
+            <label class="small control-caption" for="branch-select">Branch</label><select class="st-input" id="branch-select" aria-label="Branch"></select>
             <button class="st-btn st-btn--secondary" id="rename-chat-btn" type="button">Name chat</button>
             <button class="st-btn st-btn--secondary" id="rename-branch-btn" type="button">Name branch</button>
             <button class="st-btn st-btn--secondary" id="clear-branch-btn" type="button">Clear branch</button>
-            <button class="st-btn st-btn--secondary" id="archive-chat-btn" type="button">Archive chat</button>
           </div>
+          <button type="button" class="st-btn st-btn--secondary" id="teaching-btn" aria-label="Show control labels" aria-pressed="false">Show control labels</button>
         </div>
         <div class="workspace-state" id="workspace-state" hidden>
           <span id="workspace-save-state" role="status">Saved history · replay mode</span>

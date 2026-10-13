@@ -14,6 +14,10 @@ folder. You do not need an AI assistant or Git.
 The current interface saves its branch-aware history in SQLite and labels model
 execution as replay mode. Native GPU COW checkpoint integration remains separate.
 
+The default interface uses compact icons and delayed tooltips. The book button
+shows teaching labels. [1K/4K cached tests and their exact-output failures](docs/context-cow/SLEEK_UI_AND_LONG_CONTEXT.md)
+are reported separately from the passing interface tests.
+
 - **Try the app first:** run a small, clearly labelled sample with a fixed
   answer. No model download or GPU is needed.
 - **Talk to a real model:** run `START-HERE.bat` on Windows or `bash setup.sh`
