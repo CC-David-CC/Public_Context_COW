@@ -87,6 +87,7 @@ private:
     std::string contract_;
     std::vector<int64_t> layout_;
     std::vector<std::unique_ptr<Binding>> bindings_;
+    BranchDigestWorkspace integrity_; // all-pool scratch reserved before decoding
     std::vector<int32_t> ids_;
     std::vector<float> logits_;
     BranchSessionCounters counters_;

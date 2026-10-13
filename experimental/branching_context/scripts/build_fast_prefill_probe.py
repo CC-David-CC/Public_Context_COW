@@ -26,6 +26,7 @@ INIT = """
         return head_rows(rows + (count - 1) * geometry.hc * geometry.n_embd, logits.data(), e);
     };
     uint64_t prefill_tokens = 0, prefill_chunks = 0;
+    uint64_t decode_prepare_ns = 0, decode_compute_ns = 0, decode_finish_ns = 0, decode_timed_tokens = 0;
 """
 
 FEED = """            std::vector<int64_t> wide(tokens.begin(), tokens.end());
@@ -155,7 +156,7 @@ def build(root, output, long_demo=False):
     generated_program.write_text(program)
     driver_path = root/'src/core/branch_driver.cpp'
     driver = driver_path.read_text()
-    driver = '#include "strata/prefill/prefill.hpp"\n'+driver
+    driver = '#include "strata/prefill/prefill.hpp"\n#include <chrono>\n'+driver
     driver = replace_once(driver, 'ExpertDispatch& dispatch, int pcie_mode) {', 'ExpertDispatch& dispatch, int pcie_mode'+EXTRA+') {')
     driver = replace_once(driver, '    std::string line;', INIT+'\n    std::string line;')
     start = driver.index('            bool ok = true;')
@@ -170,16 +171,31 @@ def build(root, output, long_demo=False):
                 error_reply("decode requires one selected token"); continue;
             }
             const int64_t position = session.ids().size(); int32_t unused = 0; pool_failed = false;
-            if (!session.begin(position, 1, error) || !forward.run(1, &token, position, pool, user, &unused, error) ||
-                pool_failed || !forward.commit(1, error) || !forward.copy_logits(0, logits.data()) ||
-                !session.finish({token}, logits, error)) { error_reply(error); continue; }
+            auto timer = std::chrono::steady_clock::now();
+            const bool prepared = session.begin(position, 1, error);
+            decode_prepare_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-timer).count();
+            if (!prepared) { error_reply(error); continue; }
+            timer = std::chrono::steady_clock::now();
+            const bool computed = forward.run(1, &token, position, pool, user, &unused, error) &&
+                !pool_failed && forward.commit(1, error) && forward.copy_logits(0, logits.data());
+            decode_compute_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-timer).count();
+            if (!computed) { error_reply(error); continue; }
+            timer = std::chrono::steady_clock::now();
+            const bool finished = session.finish({token}, logits, error);
+            decode_finish_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-timer).count();
+            if (!finished) { error_reply(error); continue; }
+            ++decode_timed_tokens;
             std::cout << "{\"status\":\"ok\",\"consumed\":" << session.ids().size() << "}" << std::endl;
 '''
         driver = replace_once(driver, '        } else if (command == "capture") {',decode_code+'        } else if (command == "capture") {')
     driver = replace_once(driver, '<< ",\\"forward_tokens\\":" << forward.completed_forward_tokens',
                           '<< ",\\"forward_tokens\\":" << (forward.completed_forward_tokens + prefill_tokens)\n'
                           '                      << ",\\"prefill_tokens\\":" << prefill_tokens\n'
-                          '                      << ",\\"prefill_chunks\\":" << prefill_chunks')
+                          '                      << ",\\"prefill_chunks\\":" << prefill_chunks\n'
+                          '                      << ",\\"decode_prepare_ns\\":" << decode_prepare_ns\n'
+                          '                      << ",\\"decode_compute_ns\\":" << decode_compute_ns\n'
+                          '                      << ",\\"decode_finish_ns\\":" << decode_finish_ns\n'
+                          '                      << ",\\"decode_timed_tokens\\":" << decode_timed_tokens')
     generated_driver = output/'branch_driver.cpp'
     generated_driver.write_text(driver)
     fresh_path = output/'fresh_prefill.cpp'

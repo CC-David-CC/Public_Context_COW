@@ -166,11 +166,52 @@ bool BranchPages::restore(const BranchPageSnapshot& snapshot) {
     return true;
 }
 bool BranchPages::prepare_write(uint64_t offset,uint64_t bytes) {
+    return valid_write(offset,bytes) && verify_current() && prepare_verified_write(offset,bytes);
+}
+bool BranchPages::valid_write(uint64_t offset,uint64_t bytes) const {
     if (!table_) return false;
+    const auto extent=table_->pages.size()*vmm_granularity();
+    return offset<=extent && bytes<=extent-offset;
+}
+bool BranchPages::prepare_writes(const std::vector<Write>& writes, BranchDigestWorkspace& scratch) {
+    // A small ordered list derived from the current page tables. Never cache a
+    // successful hash: writable aliases can invalidate the previous result.
+    // Check every pool before detaching ANY tail, including a corrupt last pool.
     const auto g=vmm_granularity();
-    const auto extent=table_->pages.size()*g;
-    if (offset>extent || bytes>extent-offset || !verify_current() || !private_table()) return false;
+    if (!g) return false;
+    try {
+        std::vector<const uint8_t*> inputs;
+        std::vector<const std::vector<BranchDigest>*> seals;
+        for (const auto& write:writes) {
+            if (!write.pages || !write.pages->valid_write(write.offset,write.bytes)) return false;
+            const auto& pages=write.pages->table_->pages;
+            for (size_t i=0;i<pages.size();++i) {
+                if (pages[i]->seal.empty()) continue;
+                inputs.push_back(write.pages->data()+i*g);
+                seals.push_back(&pages[i]->seal);
+            }
+        }
+        if (!inputs.empty()) {
+            std::vector<BranchDigest> actual;
+            const auto per_page=g/branch_digest_tile_bytes;
+            if (!scratch.digest_pages(inputs,g,actual) || actual.size()!=inputs.size()*per_page) return false;
+            for (size_t i=0;i<seals.size();++i) {
+                ++counts().integrity_checked_pages;
+                if (seals[i]->size()!=per_page ||
+                    !std::equal(seals[i]->begin(),seals[i]->end(),actual.begin()+i*per_page)) {
+                    ++counts().integrity_mismatches; return false;
+                }
+            }
+        }
+        for (const auto& write:writes)
+            if (!write.pages->prepare_verified_write(write.offset,write.bytes)) return false;
+        return true;
+    } catch (...) { return false; }
+}
+bool BranchPages::prepare_verified_write(uint64_t offset,uint64_t bytes) {
+    if (!private_table()) return false;
     if (!bytes) return true;
+    const auto g=vmm_granularity();
     const auto last=(offset+bytes-1)/g;
     try {
         for (auto i=offset/g;i<=last;++i) {

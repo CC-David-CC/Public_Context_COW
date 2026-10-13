@@ -12,6 +12,7 @@ inline constexpr uint64_t branch_digest_tile_bytes = 4096;
 struct BranchDigestCounters {
     uint64_t device_hashed_bytes = 0, digest_copy_bytes = 0, kernel_calls = 0;
     uint64_t workspace_allocations = 0, workspace_releases = 0, workspace_live_bytes = 0;
+    uint64_t plan_copy_bytes = 0; // actual host-to-device page-address lists
 };
 BranchDigestCounters branch_digest_counters();
 
@@ -26,8 +27,15 @@ public:
     BranchDigestWorkspace& operator=(const BranchDigestWorkspace&) = delete;
     bool reserve(uint64_t maximum_input_bytes);
     bool digest(const uint8_t* device, uint64_t bytes, std::vector<BranchDigest>& result);
+    // Reserve before the execution lease starts. Each input page has the same
+    // tile-aligned extent; output order is page order, then tile order.
+    bool reserve_pages(uint64_t maximum_pages, uint64_t page_bytes);
+    bool digest_pages(const std::vector<const uint8_t*>& pages, uint64_t page_bytes,
+                      std::vector<BranchDigest>& result);
 private:
     BranchDigest* device_ = nullptr;
     uint64_t capacity_ = 0;
+    const uint8_t** pages_ = nullptr;
+    uint64_t page_capacity_ = 0;
 };
 } // namespace strata::core

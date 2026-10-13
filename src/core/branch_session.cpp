@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 #include <exception>
 #include <fstream>
+#include <limits>
 #include <mutex>
 
 namespace strata::core {
@@ -142,6 +143,14 @@ bool BranchSession::bind(std::string& error) {
             }
         }
     } catch (const std::exception& e) { return fail(error, e.what()); }
+    uint64_t pages=0;
+    const auto granularity=vmm_granularity();
+    for (const auto& b:staged) {
+        const auto n=b->bytes/granularity+(b->bytes%granularity!=0);
+        if (n>std::numeric_limits<uint64_t>::max()-pages) return fail(error, "integrity capacity overflow");
+        pages+=n;
+    }
+    if (!integrity_.reserve_pages(pages,granularity)) return fail(error, "cannot reserve all-pool integrity scratch");
     bindings_ = std::move(staged);
     for (const auto& b : bindings_) set_pointer(*b->state, b->part, b->memory.data());
     state_ = State::ready;
@@ -153,6 +162,9 @@ bool BranchSession::begin(int64_t position, int64_t count, std::string& error) {
         return fail(error, "invalid consumed position, capacity, or transition");
     if (!sync(error)) { state_ = State::failed; return false; }
     const auto shape = strata::kernels::qsa_real_shapes();
+    std::vector<BranchPages::Write> writes;
+    try { writes.reserve(bindings_.size()); }
+    catch (...) { state_ = State::failed; return fail(error, "cannot allocate write list"); }
     for (const auto& b : bindings_) {
         uint64_t first, end;
         if (b->part == 4) {
@@ -162,10 +174,11 @@ bool BranchSession::begin(int64_t position, int64_t count, std::string& error) {
             first = position / shape.page_size * shape.page_size;
             end = (position + count + shape.page_size - 1) / shape.page_size * shape.page_size;
         }
-        if (!b->memory.prepare_write(first*b->per_cell, (end-first)*b->per_cell)) {
-            state_ = State::failed;
-            return fail(error, "cannot prepare private tail; restore a committed image before reuse");
-        }
+        writes.push_back({&b->memory,first*b->per_cell,(end-first)*b->per_cell});
+    }
+    if (!BranchPages::prepare_writes(writes,integrity_)) {
+        state_ = State::failed;
+        return fail(error, "cannot prepare private tail; restore a committed image before reuse");
     }
     pending_ = count;
     state_ = State::writing;

@@ -9,6 +9,7 @@ namespace {
 struct Counters {
     std::atomic<uint64_t> device_hashed_bytes{0}, digest_copy_bytes{0}, kernel_calls{0};
     std::atomic<uint64_t> workspace_allocations{0}, workspace_releases{0}, workspace_live_bytes{0};
+    std::atomic<uint64_t> plan_copy_bytes{0};
 };
 Counters& counters() { static auto* value = new Counters; return *value; }
 uint64_t tiles(uint64_t bytes) { return bytes ? (bytes - 1) / branch_digest_tile_bytes + 1 : 1; }
@@ -20,13 +21,26 @@ __global__ void hash_tiles(const uint8_t* input, uint64_t bytes, uint64_t count,
     const auto length = remaining < branch_digest_tile_bytes ? remaining : branch_digest_tile_bytes;
     branch_sha256(input + offset, length, result[index]);
 }
+__global__ void hash_pages(const uint8_t* const* pages, uint64_t per_page, uint64_t count,
+                           BranchDigest* result) {
+    const uint64_t index = uint64_t(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (index >= count) return;
+    branch_sha256(pages[index / per_page] + (index % per_page) * branch_digest_tile_bytes,
+                  branch_digest_tile_bytes, result[index]);
+}
 }
 BranchDigestCounters branch_digest_counters() {
     const auto& c = counters();
     return {c.device_hashed_bytes.load(), c.digest_copy_bytes.load(), c.kernel_calls.load(),
-            c.workspace_allocations.load(), c.workspace_releases.load(), c.workspace_live_bytes.load()};
+            c.workspace_allocations.load(), c.workspace_releases.load(), c.workspace_live_bytes.load(),
+            c.plan_copy_bytes.load()};
 }
 BranchDigestWorkspace::~BranchDigestWorkspace() {
+    if (pages_) {
+        if (cudaFree(pages_) != cudaSuccess) std::terminate();
+        ++counters().workspace_releases;
+        counters().workspace_live_bytes -= page_capacity_ * sizeof(*pages_);
+    }
     if (!device_) return;
     if (cudaFree(device_) != cudaSuccess) std::terminate();
     ++counters().workspace_releases;
@@ -59,6 +73,46 @@ bool BranchDigestWorkspace::digest(const uint8_t* input, uint64_t bytes, std::ve
     if (cudaGetLastError() != cudaSuccess || cudaDeviceSynchronize() != cudaSuccess) return false;
     ++counters().kernel_calls;
     counters().device_hashed_bytes += bytes;
+    if (cudaMemcpy(output.data(), device_, count * sizeof(BranchDigest), cudaMemcpyDeviceToHost) != cudaSuccess)
+        return false;
+    counters().digest_copy_bytes += count * sizeof(BranchDigest);
+    result.swap(output);
+    return true;
+}
+bool BranchDigestWorkspace::reserve_pages(uint64_t pages, uint64_t bytes) {
+    if (!pages || !bytes || bytes % branch_digest_tile_bytes ||
+        pages > std::numeric_limits<uint64_t>::max() / bytes ||
+        pages > std::numeric_limits<size_t>::max() / sizeof(*pages_) || !reserve(pages * bytes)) return false;
+    if (pages <= page_capacity_) return true;
+    const uint8_t** next = nullptr;
+    if (cudaMalloc(&next, pages * sizeof(*pages_)) != cudaSuccess) return false;
+    if (pages_) {
+        if (cudaFree(pages_) != cudaSuccess) std::terminate();
+        ++counters().workspace_releases;
+        counters().workspace_live_bytes -= page_capacity_ * sizeof(*pages_);
+    }
+    pages_ = next; page_capacity_ = pages;
+    ++counters().workspace_allocations;
+    counters().workspace_live_bytes += pages * sizeof(*pages_);
+    return true;
+}
+bool BranchDigestWorkspace::digest_pages(const std::vector<const uint8_t*>& pages, uint64_t bytes,
+                                         std::vector<BranchDigest>& result) {
+    if (pages.empty() || pages.size() > page_capacity_ || !pages_ || !device_ ||
+        !bytes || bytes % branch_digest_tile_bytes ||
+        pages.size() > std::numeric_limits<uint64_t>::max() / bytes) return false;
+    const auto count = pages.size() * (bytes / branch_digest_tile_bytes);
+    if (count > capacity_) return false;
+    for (const auto* page : pages) if (!page) return false;
+    std::vector<BranchDigest> output;
+    try { output.resize(count); } catch (...) { return false; }
+    const auto plan_bytes = pages.size() * sizeof(*pages_);
+    if (cudaMemcpy(pages_, pages.data(), plan_bytes, cudaMemcpyHostToDevice) != cudaSuccess) return false;
+    counters().plan_copy_bytes += plan_bytes;
+    hash_pages<<<unsigned((count + 127) / 128), 128>>>(pages_, bytes / branch_digest_tile_bytes, count, device_);
+    if (cudaGetLastError() != cudaSuccess || cudaDeviceSynchronize() != cudaSuccess) return false;
+    ++counters().kernel_calls;
+    counters().device_hashed_bytes += pages.size() * bytes;
     if (cudaMemcpy(output.data(), device_, count * sizeof(BranchDigest), cudaMemcpyDeviceToHost) != cudaSuccess)
         return false;
     counters().digest_copy_bytes += count * sizeof(BranchDigest);

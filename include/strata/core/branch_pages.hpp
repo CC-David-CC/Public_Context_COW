@@ -50,6 +50,11 @@ public:
     static bool read_page(const BranchPageSnapshot& snapshot, size_t index, std::vector<uint8_t>& bytes);
     static BranchPageCounters counters();
 private:
+    friend class BranchSession;
+    struct Write { BranchPages* pages; uint64_t offset, bytes; };
+    static bool prepare_writes(const std::vector<Write>& writes, BranchDigestWorkspace& scratch);
+    bool valid_write(uint64_t offset, uint64_t bytes) const;
+    bool prepare_verified_write(uint64_t offset, uint64_t bytes);
     bool private_table();
     bool reserve_verification();
     bool verify_current();

@@ -18,7 +18,7 @@ import time
 from speed_8k import command, sha
 
 
-def main():
+def main(request_lanes=(('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'), ('disk', 'B'))):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--api', type=Path, required=True)
     parser.add_argument('--profile', type=Path, required=True)
@@ -65,6 +65,7 @@ def main():
                   model_identity=profile['model_weights_sha256'], hardware=profile['hardware'],
                   profile_sha256=sha(args.output / 'profile.json'), fixture_sha256=sha(args.fixture),
                   script_sha256=sha(__file__), oracle={}, requests=[], numerical_max_error=0.0,
+                  request_sequence=request_lanes,
                   limitations=['Aligned 8192-token prefill boundary only; arbitrary split remains open',
                                'Each native fresh process has no branch/checkpoint restore',
                                'Timings separate native calls, full-vector validation, controller and durable publication',
@@ -161,7 +162,7 @@ def main():
         files = sut.checkpoint(root)
         report['save_seconds'] = time.perf_counter()-started
         report['checkpoint'] = dict(bytes=files['payload_path'].stat().st_size, sha256=sha(files['payload_path']))
-        for lane, label in [('resident', 'A'), ('resident', 'B'), ('host-ram', 'A'), ('disk', 'B')]:
+        for lane, label in request_lanes:
             stage(lane + ' ' + label)
             suffix = tuple(tokens['suffixes'][label])
             oracle = report['oracle'][label]['native']
@@ -232,14 +233,20 @@ def main():
             row.update(seconds=time.perf_counter()-started, ids=generated, actual_outputs=len(generated))
             after = backend._request('stats')
             keys = ('forward_tokens', 'prefill_tokens', 'windows', 'loaded_file_bytes', 'cow_pages', 'copied_bytes',
-                    'integrity_kernel_calls', 'integrity_device_hashed_bytes', 'integrity_checked_pages')
+                    'integrity_kernel_calls', 'integrity_device_hashed_bytes', 'integrity_checked_pages',
+                    'decode_prepare_ns', 'decode_compute_ns', 'decode_finish_ns', 'decode_timed_tokens')
             row['counters'] = {key: after[key]-before[key] for key in keys}
             row['counters']['ram_hits'] = backend._request('ram_stats')['hits']-before_ram['hits']
             assert row['counters']['forward_tokens'] == 512+len(generated)
             assert row['counters']['windows'] == len(generated)
+            assert row['counters']['decode_timed_tokens'] == len(generated)
+            assert all(row['counters'][key] > 0 for key in ('decode_prepare_ns', 'decode_compute_ns', 'decode_finish_ns'))
+            row['native_decode_seconds'] = {name: row['counters']['decode_' + name + '_ns']/1e9
+                                            for name in ('prepare', 'compute', 'finish')}
             assert (row['counters']['loaded_file_bytes'] > 0) == (lane == 'disk')
             if lane == 'host-ram':
                 assert row['counters']['ram_hits'] == 1
+                assert row['counters']['cow_pages'] == row['counters']['copied_bytes'] == 0
             assert sut.history(sid) == prefix+suffix+tuple(generated)
             assert sut.snapshot_bytes(root) == root_bytes
             current = backend.audit(held)

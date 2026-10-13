@@ -262,6 +262,7 @@ int branch_driver(const WeightTable& weights, const ModelGeometry& geometry, Ses
                       << ",\"integrity_mismatches\":" << p.integrity_mismatches
                       << ",\"integrity_device_hashed_bytes\":" << h.device_hashed_bytes
                       << ",\"integrity_digest_copy_bytes\":" << h.digest_copy_bytes
+                      << ",\"integrity_plan_copy_bytes\":" << h.plan_copy_bytes
                       << ",\"integrity_kernel_calls\":" << h.kernel_calls
                       << ",\"integrity_workspace_allocations\":" << h.workspace_allocations
                       << ",\"integrity_workspace_releases\":" << h.workspace_releases
