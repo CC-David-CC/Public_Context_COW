@@ -30,8 +30,8 @@ Completed messages are saved on the server. You do not need to click a Save butt
 
 1. Find the last answer you want both paths to share.
 2. Click **Fork here** below that message.
-3. Type a name, such as `Pizza example`.
-4. Click **Create branch**.
+3. The app opens a new branch immediately, named `Alternative 1` (or the next number).
+4. To give it your own name, click the **name tag** beside the branch list. Type `Pizza example` and save.
 5. Ask a different question. For example: `Explain this with a pizza.`
 6. Use the **Branch** list above the messages. Select **Main**.
 
@@ -41,15 +41,13 @@ You can fork from a user message or an answer. Wait for an answer to finish firs
 
 ![Main with the shared answer and branch controls](results/chat-workspace-20261013/01-live-main.jpg)
 
-![Name the new branch](results/chat-workspace-20261013/02-live-fork-dialog.jpg)
-
 ![The pizza question and answer belong to the pizza branch](results/chat-workspace-20261013/03-live-pizza.jpg)
 
 ## Go back, clear, or hide
 
-- **Rewind here** returns the selected branch to that message. Confirm with **Restore point**.
-- **Clear branch** empties only the selected branch. It does not erase its saved history.
-- To undo a clear or rewind, choose the old point in **Saved points**, then click **Restore point** and confirm.
+- **Rewind here** returns the selected branch to that message. It acts immediately.
+- **Clear branch** immediately empties only the selected branch. It does not erase its saved history.
+- To undo a clear or rewind, choose the old point in **Saved points**, then click the curled **Restore point** arrow. No confirmation is needed.
 - The **×** beside a chat hides it from the normal list. Check **Show archived**
   to find it again. Click its return arrow to put it back in the normal list.
 - **Name chat** and **Name branch** change labels. They do not change messages.
@@ -99,14 +97,14 @@ These are the same controls you learned above, with the words hidden:
 | New chat | Plus sign |
 | Export | Down arrow into a tray |
 | Name chat | Pencil beside the chat title |
-| Name branch | Pencil beside the branch list |
+| Name branch | Name tag beside the branch list |
 | Fork here | Arrow that splits into two paths below a message |
 | Rewind here / Restore point | Curled arrow |
-| Clear branch | Eraser |
+| Clear branch | Bin (saved history stays available) |
 | Archive chat | × beside the chat in the list |
 | Show control labels | Open book |
 
 Hold the pointer over an icon to check its name. The browser's keyboard and
 screen-reader labels are also available when the visible words are hidden.
 
-![Compact COW interface with fork and rewind icons](results/sleek-workspace-20261013/01-live-sleek.jpg)
+![Compact COW interface with fork and rewind icons](results/direct-branch-controls-20261013/live-controls.jpg)

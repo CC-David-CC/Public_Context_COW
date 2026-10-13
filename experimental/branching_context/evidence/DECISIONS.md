@@ -611,3 +611,8 @@ Use normalized SQLite presentation histories, separate branch heads and ordered 
 ### Cache-enabled review and compact controls (2026-10-13)
 
 Keep native prompt/conversation caches enabled as explicitly requested, and preserve the long-context output mismatches as failures. Do not infer state corruption or a harmless numerical error without logit evidence. The identical-payload probe isolates the difference below UI replay construction. Use existing ckpt=0 for archived requests; do not invent a per-chat native eviction primitive. Default icons retain accessible names, delayed hover/focus tooltips and optional teaching labels.
+
+
+### 2026-10-13 - Direct branch controls
+
+Fork, rewind, restore and clear now act immediately. Fork names are automatic; branch rename uses a name-tag icon and clear uses a bin. Saved tips remain recoverable. Controls disable during moves to avoid an observed browser timing race. 72 browser checks passed (24 each Chromium, Firefox, WebKit), using mock inference and real SQLite. Initial failures retained in docs/context-cow/results/direct-branch-controls-20261013. No native correctness qualification was run; caches remain enabled and the cold/warm output disagreement remains open.

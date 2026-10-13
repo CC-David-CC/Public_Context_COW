@@ -800,3 +800,8 @@ Built untouched upstream base 7695859a and ran eight serial requests on each of 
 ### Compact UI and cached 1K/4K measurements (2026-10-13)
 
 60 browser checks and 20 store/HTTP methods passed. Enabled six native prompt checkpoints and an 8 GiB/eight-slot conversation cache on llm-60. Twelve long-context requests completed; native cached reuse was measured. All six original-versus-repeat output equality assertions failed. An identical 4660-token HTTP payload after server restart differed cold versus warm, while warm versus warm matched; first reuse counter was zero. No logit oracle or numerical error measurement. Native GPU COW UI adapter remains absent. Archive retains SQLite history and forces checkpoint=false for new requests; old native entries follow bounded eviction. Evidence: docs/context-cow/SLEEK_UI_AND_LONG_CONTEXT.md.
+
+
+### 2026-10-13 - Direct branch controls
+
+Fork, rewind, restore and clear now act immediately. Fork names are automatic; branch rename uses a name-tag icon and clear uses a bin. Saved tips remain recoverable. Controls disable during moves to avoid an observed browser timing race. 72 browser checks passed (24 each Chromium, Firefox, WebKit), using mock inference and real SQLite. Initial failures retained in docs/context-cow/results/direct-branch-controls-20261013. No native correctness qualification was run; caches remain enabled and the cold/warm output disagreement remains open.

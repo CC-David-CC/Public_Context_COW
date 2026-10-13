@@ -8,7 +8,8 @@ const ContextWorkspace = {
     add:'<path d="M12 5v14M5 12h14"/>',
     export:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
     pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',
-    clear:'<path d="m3 14 10-10 8 8-8 8H9zm6 6h12M8 9l8 8"/>',
+    name:'<path d="M3 4h9l9 9-8 8-10-10z"/><circle cx="7" cy="8" r="1"/><path d="m12 12 4 4"/>',
+    clear:'<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/>',
     archive:'<path d="m7 7 10 10M17 7 7 17"/>',
     unarchive:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
     teach:'<path d="M3 5h7l2 2 2-2h7v14h-7l-2 2-2-2H3zM12 7v14"/>'
@@ -19,7 +20,7 @@ const ContextWorkspace = {
     const span=document.createElement('span');span.className='control-label';span.textContent=label;button.append(span);return button;
   },
   appearance() {
-    for(const [id,label,icon] of [['new-btn','New chat','add'],['export-btn','Export','export'],['rename-chat-btn','Name chat','pencil'],['rename-branch-btn','Name branch','pencil'],['clear-branch-btn','Clear branch','clear'],['restore-point-btn','Restore point','rewind'],['teaching-btn','Show control labels','teach']])
+    for(const [id,label,icon] of [['new-btn','New chat','add'],['export-btn','Export','export'],['rename-chat-btn','Name chat','pencil'],['rename-branch-btn','Name branch','name'],['clear-branch-btn','Clear branch','clear'],['restore-point-btn','Restore point','rewind'],['teaching-btn','Show control labels','teach']])
       this.iconButton($(id),label,icon);
     const teaching=store.get('workspace.teaching',false);document.documentElement.dataset.teaching=String(teaching);$('teaching-btn').setAttribute('aria-pressed',String(teaching));
     $('teaching-btn').onclick=()=>{const on=document.documentElement.dataset.teaching!=='true';document.documentElement.dataset.teaching=String(on);store.set('workspace.teaching',on);$('teaching-btn').setAttribute('aria-pressed',String(on));};
@@ -122,21 +123,33 @@ const ContextWorkspace = {
     const chat=await this.request('chats/create',{title,operation_id:this.operation()});await this.select(chat.branch.id);
   },
   create() {this.modal('New chat','Your current chat stays in the list.','New chat',name=>this.makeChat(name),'Create chat');},
+  async direct(action) {
+    if(busy){toast('info','Wait for this answer','Stop or finish it before changing branches.');return;}
+    if(this.moving)return;
+    this.moving=true;
+    const controls=['branch-select','clear-branch-btn','restore-point','restore-point-btn'].map($);
+    controls.forEach(control=>control.disabled=true);
+    try {await action();} catch(e){this.error(e);} finally {this.moving=false;controls.forEach(control=>control.disabled=false);}
+  },
   fork(node) {
-    this.modal('Fork here','Start a new branch at this message. The original branch stays unchanged.',`Alternative ${this.branches.length}`,async name=>{
+    return this.direct(async()=>{
+      const name=`Alternative ${this.branches.length}`;
       const branch=await this.request('branches/fork',{branch_id:this.current.id,node_id:node,name,operation_id:this.operation()});await this.select(branch.id);
-    },'Create branch');
+      toast('info','Branch created',name);
+    });
   },
   rewind(node) {
     if(!node)return;
-    this.modal('Restore this point?','The branch returns here. Later messages remain available in Saved points.',null,async()=>{
+    return this.direct(async()=>{
       const branch=await this.request('branches/rewind',{branch_id:this.current.id,revision:this.current.revision,node_id:node,operation_id:this.operation()});await this.select(branch.id);
-    },'Restore point');
+      toast('info','Point restored','The previous tip is in Saved points.');
+    });
   },
   clear() {
-    this.modal('Clear this branch?','This empties only the selected branch. Other branches stay unchanged. You can restore the old tip from Saved points.',null,async()=>{
+    return this.direct(async()=>{
       const branch=await this.request('branches/clear',{branch_id:this.current.id,revision:this.current.revision,operation_id:this.operation()});await this.select(branch.id);
-    },'Clear branch');
+      toast('info','Branch cleared','Restore its previous tip from Saved points.');
+    });
   },
   renameChat() {this.modal('Name this chat','Use a name you can find in the chat list.',$('workspace-title').textContent,async title=>{await this.request('chats/rename',{chat_id:this.current.chat_id,title});await this.select(this.current.id);});},
   renameBranch() {this.modal('Name this branch','The name does not change its history.',this.current.name,async name=>{await this.request('branches/rename',{branch_id:this.current.id,name});await this.select(this.current.id);});},

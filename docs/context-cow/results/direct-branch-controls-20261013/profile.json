@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "scope": "presentation UI and durable SQLite only; mock inference",
+  "browser_checks": 72,
+  "browsers": {
+    "chromium": 24,
+    "firefox": 24,
+    "webkit": 24
+  },
+  "native_inference_tested": false,
+  "cache_configuration_changed": false,
+  "initial_failures_retained": "red and initial directories",
+  "changes": [
+    "distinct branch name-tag and clear bin icons",
+    "immediate fork, rewind, restore and clear",
+    "automatically named forks",
+    "serialized moves disable controls until complete",
+    "recoverable saved history"
+  ]
+}
