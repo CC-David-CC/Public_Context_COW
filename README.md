@@ -25,7 +25,7 @@ shows teaching labels. [1K/4K cached tests and their exact-output failures](docs
 are reported separately from the passing interface tests.
 
 - **Try the app first:** run a small, clearly labelled sample with a fixed
-  answer. No model download or GPU is needed.
+  answer. No model download or GPU is needed to test on internal LAN.
 - **Talk to a real model:** run `START-HERE.bat` on Windows or `bash setup.sh`
   on Linux. Setup checks the computer and downloads the model you select.
 - **See math:** open Chat → Sampling and thinking → Render math.
