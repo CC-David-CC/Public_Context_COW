@@ -1,3 +1,5 @@
+> **Earlier Context COW publication.** Current experimental server/API development is published in [Private_Context_COW](https://github.com/CC-David-CC/Private_Context_COW), and the coding client is [BranchWrite](https://github.com/CC-David-CC/BranchWrite). Despite its historical name, Private_Context_COW is the current public source preview. This repository preserves the earlier implementation, browser interface and measurements. Its results keep their original version scope. See the current repositories for the2026-10-20 preview and outstanding qualification work. No history or releases have been deleted.
+
 <p align="center"><img src="docs/context-cow/Context_COW_logo.png" alt="Context COW" width="430"></p>
 
 # Context COW v0.1.2-rc2 — experimental release candidate
